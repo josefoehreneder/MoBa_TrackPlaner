@@ -1,0 +1,1035 @@
+<title>Spur-N Gleisplaner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen app — header strip, plan canvas, bottom dock with context row + part palette */
+:root{
+  --bg:#E9ECE7; --panel:#FFFFFF; --ink:#1C2521; --muted:#5D6A63; --line:#D2D9D3;
+  --accent:#C98A00; --accent-ink:#1A1400; --accent-soft:#F6E7BF;
+  --board:#E6DDCB; --board-edge:#B9A988; --grid:rgba(60,50,30,.10); --grid-strong:rgba(60,50,30,.22);
+  --ballast:#A49D90; --rail:#5E646B; --tie:#7A6650; --up:#2F78D0; --down:#9A5A24;
+  --bad:#D9363E; --warn:#E06A0C; --ok:#2E8B47;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111513; --panel:#1A201D; --ink:#E6ECE7; --muted:#95A39A; --line:#2B3530;
+  --accent:#F2B705; --accent-ink:#1A1400; --accent-soft:#3A3115;
+  --board:#2B2721; --board-edge:#4A4236; --grid:rgba(255,240,210,.06); --grid-strong:rgba(255,240,210,.14);
+  --ballast:#6F685D; --rail:#C9CFD5; --tie:#4F4134; --up:#5AA2F2; --down:#C9844A;
+  --bad:#FF5A61; --warn:#FF8A33; --ok:#4CC26C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111513; --panel:#1A201D; --ink:#E6ECE7; --muted:#95A39A; --line:#2B3530;
+  --accent:#F2B705; --accent-ink:#1A1400; --accent-soft:#3A3115;
+  --board:#2B2721; --board-edge:#4A4236; --grid:rgba(255,240,210,.06); --grid-strong:rgba(255,240,210,.14);
+  --ballast:#6F685D; --rail:#C9CFD5; --tie:#4F4134; --up:#5AA2F2; --down:#C9844A;
+  --bad:#FF5A61; --warn:#FF8A33; --ok:#4CC26C; color-scheme:dark}
+html{box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto}
+.top>*{min-width:0}
+
+/* header */
+.top{display:flex;align-items:center;gap:8px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:7px;min-width:0;margin-right:auto}
+.mark{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:var(--ink);color:var(--bg);font-family:var(--f-display);font-weight:700;font-size:19px;flex:none}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:600;font-size:19px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:9.5rem;min-height:36px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.seg button{border:0;background:transparent;padding:6px 10px;min-height:34px;font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.03em}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 11px;min-height:36px;white-space:nowrap;font-weight:500}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+
+/* stage */
+#stage{position:relative;overflow:hidden;min-height:0}
+#c2,#c3wrap{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#c3wrap canvas{display:block;touch-action:none}
+.fab{position:absolute;top:10px;right:max(10px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px}
+.fab button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:19px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.legend{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.legend i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--down),var(--ballast),var(--up))}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:calc(100% - 120px);text-align:center;pointer-events:none}
+.modehint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px}
+
+/* dock */
+.dock{background:var(--panel);border-top:1px solid var(--line);padding-bottom:4px}
+.row{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding-block:7px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.row::-webkit-scrollbar{display:none}
+#ctx{border-bottom:1px solid var(--line);min-height:52px}
+.ctx-name{display:flex;flex-direction:column;min-width:0;flex:none;line-height:1.15}
+.ctx-name b{font-family:var(--f-display);font-weight:600;font-size:16px;white-space:nowrap}
+.ctx-name span{color:var(--muted);font-size:12px;white-space:nowrap}
+.stat{display:flex;gap:14px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted);font-size:13px}
+.stat b{color:var(--ink);font-weight:600}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.pill.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;flex:none}
+.stepper span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 4px 0 8px}
+.stepper button{border:0;background:transparent;width:34px;height:34px;font-size:18px}
+.stepper output{min-width:58px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+.stepper output.warn{color:var(--warn)} .stepper output.bad{color:var(--bad)}
+.tools .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);flex:none}
+#palette{gap:6px;padding-top:2px}
+.chip{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:68px;height:72px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:4px}
+.chip:active{background:var(--accent-soft);border-color:var(--accent)}
+.chip svg{width:46px;height:30px;overflow:visible}
+.chip svg path{fill:none;stroke:var(--ink);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.chip b{font-family:var(--f-display);font-weight:600;font-size:14px;line-height:1}
+.chip small{font-size:10.5px;color:var(--muted);line-height:1;white-space:nowrap}
+.grp{flex:none;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:0 2px}
+
+/* sheet */
+#sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center}
+.sheet-in{background:var(--panel);width:100%;max-width:640px;max-height:86%;overflow-y:auto;border-radius:16px 16px 0 0;padding-block:6px 20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.sheet-in h2{font-family:var(--f-display);font-weight:600;font-size:22px;margin:10px 0 4px;text-wrap:balance}
+.sheet-in h3{font-family:var(--f-display);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 8px}
+.sheet-in p{margin:6px 0;line-height:1.5;color:var(--muted);max-width:62ch}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 0}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td,th{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13.5px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+td.n{text-align:right;font-weight:600;width:3.5em}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.field input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px;width:100%;min-height:40px;font-variant-numeric:tabular-nums}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+textarea{width:100%;min-height:90px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.rules{display:grid;gap:8px}
+.rule{display:flex;gap:10px;align-items:baseline}
+.rule b{font-family:var(--f-display);font-size:18px;min-width:4.5em;font-variant-numeric:tabular-nums}
+/* Telefon */
+body{overscroll-behavior:none;touch-action:pan-x pan-y;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!important}
+.fab{gap:10px}
+.fab button{width:46px;height:46px}
+.fab button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.editbar{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 2px 8px rgba(0,0,0,.12);max-width:calc(100% - 80px);overflow-x:auto;scrollbar-width:none}
+.editbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:50px;height:46px;border:0;border-radius:9px;background:transparent;padding:0 6px}
+.editbar button:active:not(:disabled){background:var(--accent-soft)}
+.editbar button:disabled{opacity:.35}
+.editbar .ic{font-size:18px;line-height:1}
+.editbar small{font-size:10px;color:var(--muted);line-height:1}
+.editbar .sep{width:1px;background:var(--line);margin:6px 2px;flex:none}
+.editbar .del .ic{color:var(--bad)}
+.editbar button[aria-pressed="true"]{background:var(--accent);}
+.editbar button[aria-pressed="true"] small{color:var(--accent-ink)}
+.arrow{display:inline-block;transition:transform .15s}
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.quick .btn{min-width:56px}
+#toast{top:auto;bottom:16px}
+.tools{gap:8px;overflow:visible}
+#tabs{flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:none}
+.tools>.seg:last-child{flex:none}
+.tabs-p{overflow:visible}
+.tabs-p button{padding:6px 11px}
+.tools .seg button{min-height:38px}
+.spacer{display:none}
+.chip.wide{width:auto;padding:4px 14px}
+@media (max-width:480px){
+  .brand h1{display:none}
+  .top{gap:6px;padding-block:6px}
+  select{max-width:none;flex:1 1 auto;min-width:0}
+  .brand{margin-right:0}
+  .btn{padding:6px 10px}
+  .chip{width:60px;height:64px}
+  .chip svg{width:40px;height:26px}
+  .stepper span{display:none}
+  .stepper output{min-width:54px}
+  .stepper button{width:40px;height:40px}
+  .ctx-name b{font-size:15px}
+  .ctx-name{max-width:42vw}
+  .ctx-name b,.ctx-name span{overflow:hidden;text-overflow:ellipsis}
+  .legend{display:none}
+  .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* Querformat am Telefon: Werkzeuge rechts */
+@media (orientation:landscape) and (max-height:540px){
+  #app{grid-template-columns:minmax(0,1fr) min(300px,42%);grid-template-rows:auto minmax(0,1fr)}
+  .top{grid-column:1 / -1;padding-block:4px}
+  .brand h1{display:inline}
+  #stage{grid-column:1;grid-row:2}
+  .dock{grid-column:2;grid-row:2;border-top:0;border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+  .row{flex-wrap:wrap;overflow:visible;padding-left:12px;padding-right:max(12px,env(safe-area-inset-right,0px))}
+  #ctx{min-height:0}
+  .ctx-name{max-width:100%;flex:1 1 100%}
+  #palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr))}
+  .chip{width:auto;height:62px}
+  .chip.wide{grid-column:span 2}
+  .fab{right:10px}
+  .stepper span{display:none}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="mark">N</span><h1>Gleisplaner</h1></div>
+    <select id="sys" aria-label="Gleissystem"></select>
+    <div class="seg" role="group" aria-label="Ansicht">
+      <button id="v2" aria-pressed="true">2D</button><button id="v3" aria-pressed="false">3D</button>
+    </div>
+    <button id="menuBtn" class="btn">Plan</button>
+  </header>
+
+  <main id="stage">
+    <canvas id="c2"></canvas>
+    <div id="c3wrap" hidden></div>
+    <div class="fab">
+      <button id="zinBtn" title="Vergrößern" aria-label="Vergrößern">+</button>
+      <button id="zoutBtn" title="Verkleinern" aria-label="Verkleinern">−</button>
+      <button id="fitBtn" title="Einpassen" aria-label="Plan einpassen">⤢</button>
+    </div>
+    <div class="editbar" role="toolbar" aria-label="Bearbeiten">
+      <button id="undoBtn" aria-label="Rückgängig"><span class="ic">↶</span><small>Zurück</small></button>
+      <button id="redoBtn" aria-label="Wiederholen"><span class="ic">↷</span><small>Vorwärts</small></button>
+      <span class="sep"></span>
+      <button id="delBtn" class="del" aria-label="Löschen"><span class="ic">✕</span><small>Löschen</small></button>
+      <button id="copyBtn" aria-label="Kopieren"><span class="ic">⧉</span><small>Kopieren</small></button>
+      <button id="pasteBtn" aria-label="Einfügen"><span class="ic">⤓</span><small>Einfügen</small></button>
+      <span class="sep"></span>
+      <button id="startBtn" aria-label="Startpunkt festlegen" aria-pressed="false"><span class="ic">⌖</span><small>Start</small></button>
+    </div>
+    <div class="legend"><span>−</span><i></i><span>+80 mm</span></div>
+    <div id="toast" hidden></div>
+    <div id="modeHint" class="modehint" hidden>Auf die Platte tippen oder den gelben Pfeil ziehen</div>
+  </main>
+
+  <footer class="dock">
+    <div id="ctx" class="row"></div>
+    <div class="row tools">
+      <div class="seg tabs-p" role="group" aria-label="Gleisart" id="tabs"></div>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Richtung">
+        <button id="dirL" aria-pressed="true" aria-label="Links">◀ L</button><button id="dirR" aria-pressed="false" aria-label="Rechts">R ▶</button>
+      </div>
+    </div>
+    <div id="palette" class="row"></div>
+  </footer>
+</div>
+
+<div id="sheet" hidden>
+  <div class="sheet-in" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="grab"></div>
+    <div class="sheet-head"><h2 id="sheetTitle">Plan</h2><button class="btn" id="sheetClose">Schließen</button></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const DEG=Math.PI/180, PI=Math.PI, TAU=2*PI;
+const CLEAR=40;            // Lichte Höhe N (mm, SO bis SO, inkl. Brückenstärke knapp)
+const STEP=8;              // Abtastung in mm
+
+/* ---------- Gleissysteme (Maße nach Katalog, gerundet) ---------- */
+const S=L=>({id:'S'+L,t:'S',L});
+const C=(R,A)=>({id:`C${R}-${A}`,t:'C',R,A});
+const Wt=(id,L,R,A,name)=>({id,t:'T',L,R,A,name});
+const X=(L,A)=>({id:`X${L}-${A}`,t:'X',L,A});
+// Bogenweiche: innen R1, außen R2 (mit optionalem geraden Vorlauf L0), beide Stränge enden im Winkel A
+const Bw=(id,R1,R2,A,L0=0)=>({id,t:'B',R1,R2,A,L0,name:'Bogenweiche'});
+const SYS={
+  kato:{name:'Kato Unitrack',parts:[S(248),S(186),S(124),S(64),S(62),
+    C(216,45),C(249,45),C(282,45),C(315,45),C(315,15),C(348,30),C(381,15),C(718,15),
+    Wt('W4',124,481,15,'Weiche Nr. 4'),Wt('W6',186,718,15,'Weiche Nr. 6'),Bw('BW15',481,718,15),Bw('BW45',282,315,45),X(124,15),X(124,90)]},
+  minitrix:{name:'Minitrix',parts:[S(312.6),S(104.2),S(54.2),S(50),
+    C(194.6,30),C(194.6,15),C(228.2,30),C(228.2,15),C(261.8,30),C(295.4,30),C(329,30),
+    Wt('W15',112.6,194.6,15,'Weiche'),Bw('BW30',194.6,228.2,30),X(104.2,30)]},
+  fleischmann:{name:'Fleischmann piccolo',parts:[S(222),S(111),S(104.2),S(57.5),
+    C(192,45),C(192,30),C(192,15),C(225.6,45),C(225.6,15),C(430,15),
+    Wt('W15',111,430,15,'Weiche'),Bw('BW30',192,225.6,30),X(111,15)]},
+  peco:{name:'Peco Setrack',parts:[S(174),S(87),
+    C(228,45),C(228,22.5),C(263.5,45),C(263.5,22.5),C(298.5,22.5),C(333.5,22.5),
+    Wt('W22',125,228,22.5,'Weiche'),Bw('BW22',228,263.5,22.5),X(125,22.5)]},
+};
+
+/* ---------- State ---------- */
+let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
+let ui={sys:'kato',dir:1,cont:true,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
+let G=new Map(), links=new Map(), openC=[], conflicts=[], jumps=[], bridges=0;
+const undoStack=[];
+const view={s:.5,ox:0,oy:0};
+
+const $=id=>document.getElementById(id);
+const fmt=(n,d=1)=>String(+(+n).toFixed(d)).replace('.',',');
+const fz=z=>(z>0.4?'+':'')+Math.round(z)+' mm';
+const wrap=a=>{a%=TAU;if(a>PI)a-=TAU;if(a<-PI)a+=TAU;return a};
+
+/* ---------- Geometrie ---------- */
+function partOf(pc){return pc.cu||SYS[pc.sys].parts.find(p=>p.id===pc.pid)}
+function lenOf(p){return p.t==='C'?p.R*p.A*DEG:p.t==='B'?(p.L0||0)+p.R2*p.A*DEG:p.L}
+const flat=p=>p.t==='T'||p.t==='X'||p.t==='B';
+const isTurnout=p=>p.t==='T'||p.t==='B';
+function pname(p){switch(p.t){
+  case'S':return p.fill?`Ausgleichsstück ${fmt(p.L)} mm`:`Gerade ${fmt(p.L)} mm`;
+  case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen R${fmt(p.R)} · ${fmt(p.A)}°`;
+  case'T':return `${p.name||'Weiche'} ${fmt(p.A)}°`;
+  case'X':return `Kreuzung ${fmt(p.A)}°`;
+  case'B':return `Bogenweiche R${fmt(p.R1,0)}/R${fmt(p.R2,0)} · ${fmt(p.A)}°`;}}
+function chipText(p){switch(p.t){
+  case'S':return [fmt(p.L),'Gerade'];
+  case'C':return ['R'+fmt(p.R,0),fmt(p.A)+'°'];
+  case'T':return [p.name&&p.name.includes('Nr')?p.name.replace('Weiche ',''):'Weiche',fmt(p.A)+'° R'+fmt(p.R,0)];
+  case'X':return ['Kreuzung',fmt(p.A)+'°'];
+  case'B':return ['Bogenw.',fmt(p.R1,0)+'/'+fmt(p.R2,0)];}}
+function linePts(x0,y0,x1,y1,t0=0,t1=1){
+  const L=Math.hypot(x1-x0,y1-y0),n=Math.max(2,Math.ceil(L/STEP)+1),o=[];
+  for(let i=0;i<n;i++){const u=i/(n-1);o.push([x0+(x1-x0)*u,y0+(y1-y0)*u,t0+(t1-t0)*u])}return o}
+function arcPts(R,A,d){
+  const a=A*DEG,n=Math.max(3,Math.ceil(R*a/STEP)+1),o=[];
+  for(let i=0;i<n;i++){const f=a*i/(n-1);o.push([R*Math.sin(f),d*R*(1-Math.cos(f)),i/(n-1)])}return o}
+function branch(p,d){const a=p.A*DEG,ax=p.R*Math.sin(a),ay=d*p.R*(1-Math.cos(a)),ext=Math.max(0,(p.L-ax)/Math.cos(a));
+  return{ax,ay,ext,ex:ax+ext*Math.cos(a),ey:ay+d*ext*Math.sin(a),a}}
+function localPaths(p,d){
+  switch(p.t){
+    case'S':return[linePts(0,0,p.L,0)];
+    case'C':return[arcPts(p.R,p.A,d)];
+    case'T':{const b=branch(p,d);let br=arcPts(p.R,p.A,d).map(q=>[q[0],q[1],0]);
+      if(b.ext>.5)br=br.concat(linePts(b.ax,b.ay,b.ex,b.ey,0,0).slice(1));
+      return[linePts(0,0,p.L,0,0,0),br]}
+    case'X':{const h=p.L/2,b=p.A*DEG;return[linePts(0,0,p.L,0,0,0),
+      linePts(h-h*Math.cos(b),-d*h*Math.sin(b),h+h*Math.cos(b),d*h*Math.sin(b),0,0)]}
+    case'B':{const L0=p.L0||0;let out=arcPts(p.R2,p.A,d).map(q=>[q[0]+L0,q[1],0]);
+      if(L0>.5)out=linePts(0,0,L0,0,0,0).concat(out.slice(1));
+      return[out,arcPts(p.R1,p.A,d).map(q=>[q[0],q[1],0])]}
+  }}
+function localConns(p,d){
+  switch(p.t){
+    case'S':return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:1}];
+    case'C':{const a=p.A*DEG;return[{x:0,y:0,a:PI,f:0},{x:p.R*Math.sin(a),y:d*p.R*(1-Math.cos(a)),a:d*a,f:1}]}
+    case'T':{const b=branch(p,d);return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},{x:b.ex,y:b.ey,a:d*b.a,f:0}]}
+    case'X':{const h=p.L/2,b=p.A*DEG;return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},
+      {x:h-h*Math.cos(b),y:-d*h*Math.sin(b),a:wrap(d*b+PI),f:0},{x:h+h*Math.cos(b),y:d*h*Math.sin(b),a:d*b,f:0}]}
+    case'B':{const a=p.A*DEG,L0=p.L0||0;return[{x:0,y:0,a:PI,f:0},
+      {x:L0+p.R2*Math.sin(a),y:d*p.R2*(1-Math.cos(a)),a:d*a,f:0},
+      {x:p.R1*Math.sin(a),y:d*p.R1*(1-Math.cos(a)),a:d*a,f:0}]}
+  }}
+function tf(pc,x,y){const c=Math.cos(pc.r),s=Math.sin(pc.r);return[pc.x+c*x-s*y,pc.y+s*x+c*y]}
+function offsetPath(pts,off){
+  return pts.map((p,i)=>{const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)];
+    const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1;return{x:p.x-dy/l*off,y:p.y+dx/l*off,z:p.z,h:Math.atan2(dy,dx)}})}
+function geom(pc){
+  const p=partOf(pc),rise=flat(p)?0:pc.rise;
+  const conns=localConns(p,pc.d).map(c=>{const[x,y]=tf(pc,c.x,c.y);return{x,y,a:wrap(pc.r+c.a),z:pc.z0+rise*c.f,f:c.f}});
+  const paths=localPaths(p,pc.d).map(path=>path.map(([lx,ly,t])=>{const[x,y]=tf(pc,lx,ly);return{x,y,z:pc.z0+rise*t}}));
+  const rails=paths.map(pt=>[offsetPath(pt,4.5),offsetPath(pt,-4.5)]);
+  const ties=[];
+  for(const pt of paths){const c=offsetPath(pt,0);let acc=3;
+    for(let i=1;i<c.length;i++){const seg=Math.hypot(c[i].x-c[i-1].x,c[i].y-c[i-1].y);acc+=seg;
+      while(acc>=6.5){acc-=6.5;const u=1-acc/seg,x=c[i-1].x+(c[i].x-c[i-1].x)*u,y=c[i-1].y+(c[i].y-c[i-1].y)*u,h=c[i].h;
+        ties.push([x-Math.sin(h)*8,y+Math.cos(h)*8,x+Math.sin(h)*8,y-Math.cos(h)*8,c[i].z])}}}
+  let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9,zs=0,zn=0;
+  for(const pt of paths)for(const q of pt){mnx=Math.min(mnx,q.x);mny=Math.min(mny,q.y);mxx=Math.max(mxx,q.x);mxy=Math.max(mxy,q.y);zs+=q.z;zn++}
+  return{p,conns,paths,rails,ties,avgz:zs/zn,bb:[mnx,mny,mxx,mxy],len:lenOf(p),grade:flat(p)?0:rise/lenOf(p)*100};
+}
+const byId=id=>st.pieces.find(p=>p.id===id);
+const key=(id,ci)=>id+':'+ci;
+
+function rebuild(){
+  G=new Map();for(const pc of st.pieces)G.set(pc.id,geom(pc));
+  links=new Map();const all=[];
+  for(const pc of st.pieces)G.get(pc.id).conns.forEach((c,ci)=>all.push({id:pc.id,ci,c}));
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const A=all[i],B=all[j];
+    if(A.id===B.id)continue;if(Math.abs(A.c.x-B.c.x)>1.2||Math.abs(A.c.y-B.c.y)>1.2)continue;
+    if(Math.hypot(A.c.x-B.c.x,A.c.y-B.c.y)<1.2&&Math.abs(wrap(A.c.a-B.c.a-PI))<.03){
+      links.set(key(A.id,A.ci),{id:B.id,ci:B.ci});links.set(key(B.id,B.ci),{id:A.id,ci:A.ci})}}
+  openC=all.filter(o=>!links.has(key(o.id,o.ci)));
+  jumps=[];
+  for(const o of all){const L=links.get(key(o.id,o.ci));if(!L||L.id<o.id)continue;
+    const z2=G.get(L.id).conns[L.ci].z;if(Math.abs(o.c.z-z2)>.6)jumps.push({x:o.c.x,y:o.c.y,dz:o.c.z-z2})}
+  // Nachbarn bis 2 Schritte
+  const nb=new Map();for(const pc of st.pieces)nb.set(pc.id,new Set());
+  for(const[k,v]of links){const id=+k.split(':')[0];nb.get(id).add(v.id)}
+  conflicts=[];bridges=0;const ps=st.pieces;
+  for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){
+    const a=ps[i].id,b=ps[j].id,ga=G.get(a),gb=G.get(b);
+    if(ga.bb[0]>gb.bb[2]+15||gb.bb[0]>ga.bb[2]+15||ga.bb[1]>gb.bb[3]+15||gb.bb[1]>ga.bb[3]+15)continue;
+    const na=nb.get(a);if(na.has(b))continue;let two=false;for(const q of na)if(nb.get(q).has(b)){two=true;break}if(two)continue;
+    let hit=null,bridge=false;
+    outer:for(const pa of ga.paths)for(const qa of pa)for(const pb of gb.paths)for(const qb of pb){
+      if(Math.abs(qa.x-qb.x)<14&&Math.abs(qa.y-qb.y)<14&&Math.hypot(qa.x-qb.x,qa.y-qb.y)<14){
+        if(Math.abs(qa.z-qb.z)<CLEAR){hit={x:(qa.x+qb.x)/2,y:(qa.y+qb.y)/2,dz:Math.abs(qa.z-qb.z)};break outer}else bridge=true}}
+    if(hit&&!conflicts.some(c=>Math.hypot(c.x-hit.x,c.y-hit.y)<40))conflicts.push(hit);
+    if(bridge&&!hit)bridges++;
+  }
+}
+function zAt(pc,ci){const p=partOf(pc);return pc.z0+(flat(p)?0:pc.rise)*localConns(p,pc.d)[ci].f}
+function propagate(start){
+  rebuild();const seen=new Set([start.id]),q=[start];
+  while(q.length){const pc=q.shift(),p=partOf(pc);
+    localConns(p,pc.d).forEach((c,ci)=>{const L=links.get(key(pc.id,ci));if(!L||seen.has(L.id))return;
+      const o=byId(L.id),op=partOf(o),f=localConns(op,o.d)[L.ci].f;
+      o.z0=zAt(pc,ci)-(flat(op)?0:o.rise)*f;seen.add(o.id);q.push(o)})}
+  rebuild();
+}
+
+/* ---------- Bearbeiten ---------- */
+const redoStack=[];
+const cur=()=>JSON.stringify({st,sel:ui.sel});
+function snap(){undoStack.push(cur());if(undoStack.length>80)undoStack.shift();redoStack.length=0}
+function restore(s){const o=JSON.parse(s);st=o.st;ui.sel=o.sel&&o.st.pieces.some(p=>p.id===o.sel)?o.sel:null;rebuild();changed()}
+function undo(){const s=undoStack.pop();if(!s){toast('Nichts rückgängig zu machen');return}redoStack.push(cur());restore(s)}
+function redo(){const s=redoStack.pop();if(!s){toast('Nichts zum Wiederholen');return}undoStack.push(cur());restore(s)}
+function delCurrent(){
+  let pc=ui.sel&&byId(ui.sel);
+  if(!pc&&st.active&&st.active.type==='conn')pc=byId(st.active.id);
+  if(!pc){toast('Erst ein Gleis antippen');return}del(pc);toast('Gleis gelöscht');
+}
+function copySel(){const pc=ui.sel&&byId(ui.sel);if(!pc){toast('Erst ein Gleis antippen');return}
+  const p=partOf(pc);ui.clip={sys:pc.sys,pid:pc.pid,cu:pc.cu,d:pc.d,grade:flat(p)?0:pc.rise/lenOf(p)};
+  toast(pname(p)+' kopiert');updEdit();save()}
+function paste(){const c=ui.clip;if(!c){toast('Erst ein Gleis kopieren');return}
+  const pc=place(c.sys,c.pid,c.cu,c.d);
+  if(pc&&c.grade){pc.rise=+(c.grade*lenOf(partOf(pc))).toFixed(2);propagate(pc);changed()}}
+function updEdit(){
+  $('undoBtn').disabled=!undoStack.length;$('redoBtn').disabled=!redoStack.length;
+  $('delBtn').disabled=!(ui.sel||(st.active&&st.active.type==='conn'));
+  $('copyBtn').disabled=!ui.sel;$('pasteBtn').disabled=!ui.clip;
+  $('pasteBtn').title=ui.clip?pname(ui.clip.cu||SYS[ui.clip.sys].parts.find(p=>p.id===ui.clip.pid))+' einfügen':'Einfügen';
+}
+function target(){
+  if(st.active&&st.active.type==='conn'){const g=G.get(st.active.id);if(g){const c=g.conns[st.active.ci];
+    const pc=byId(st.active.id),p=partOf(pc);let s=0;if(!flat(p)){s=pc.rise/lenOf(p);if(c.f===0)s=-s}
+    return{x:c.x,y:c.y,a:c.a,z:c.z,s}}}
+  const c=st.cursor;return{x:c.x,y:c.y,a:wrap(c.a+PI),z:c.z,s:0};
+}
+function setTransform(pc){
+  const p=partOf(pc),T=pc.att,c=localConns(p,pc.d)[pc.k];
+  pc.r=wrap(T.a+PI-c.a);const cs=Math.cos(pc.r),sn=Math.sin(pc.r);
+  pc.x=T.x-(cs*c.x-sn*c.y);pc.y=T.y-(sn*c.x+cs*c.y);
+  pc.z0=T.z-(flat(p)?0:pc.rise)*c.f;
+}
+function nextOpen(pc){
+  const n=localConns(partOf(pc),pc.d).length;
+  for(let i=1;i<=n;i++){const ci=(pc.k+i)%n;if(ci!==pc.k&&!links.has(key(pc.id,ci)))return{type:'conn',id:pc.id,ci}}
+  return null;
+}
+function placeRaw(sys,pid,cu,d){
+  const T=target(),p=cu||SYS[sys].parts.find(q=>q.id===pid);
+  const pc={id:st.nid++,sys,pid,cu:cu||null,d:p.t==='S'?1:d,k:0,att:T,rise:0,x:0,y:0,r:0,z0:0};
+  if(!flat(p)&&ui.cont)pc.rise=+(T.s*lenOf(p)).toFixed(2);
+  setTransform(pc);st.pieces.push(pc);rebuild();st.active=nextOpen(pc);return pc;
+}
+function place(sys,pid,cu,d=ui.dir){
+  if(st.active===null){if(st.pieces.length){toast('Erst einen gelben Anschluss antippen');return}st.active={type:'cursor'}}
+  snap();const pc=placeRaw(sys,pid,cu,d);ui.sel=pc.id;changed();
+  try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}
+  return pc;
+}
+function reattach(pc,fn){
+  snap();const p=partOf(pc),oldF=localConns(p,pc.d)[pc.k].f;fn(pc);
+  const nf=localConns(p,pc.d)[pc.k].f;if(nf!==oldF)pc.rise=-pc.rise;
+  setTransform(pc);propagate(pc);st.active=nextOpen(pc);changed();
+}
+// Ausrichtung eines gesetzten Gleises ändern; angeschlossene Stränge wandern mit.
+// perm: alter Anschluss-Index -> neuer Anschluss-Index
+function reorient(pc,newD,perm,label){
+  snap();rebuild();
+  const p=partOf(pc),n=localConns(p,pc.d).length,P=i=>perm&&perm[i]!==undefined?perm[i]:i;
+  const linked=[];for(let ci=0;ci<n;ci++){const L=links.get(key(pc.id,ci));if(L)linked.push({ci,L})}
+  const oldF=localConns(p,pc.d)[pc.k].f;
+  if(!linked.length){ // freies Gleis: am eigenen Ansatzpunkt drehen
+    pc.d=newD;pc.k=P(pc.k);const nf=localConns(p,pc.d)[pc.k].f;if(nf!==oldF)pc.rise=-pc.rise;
+    setTransform(pc);rebuild();st.active=nextOpen(pc);changed();toast(label);return}
+  const fx=linked.find(o=>o.ci===pc.k)||linked[0];
+  const F=G.get(fx.L.id).conns[fx.L.ci];
+  const moves=[],blocked=[];const taken=new Set();
+  for(const o of linked){if(o===fx)continue;
+    const set=downstream(o.L.id,pc.id),c0=G.get(o.L.id).conns[o.L.ci];
+    if(set.has(fx.L.id)||[...set].some(id=>taken.has(id))){blocked.push({ci:o.ci,pose:c0});continue}
+    set.forEach(id=>taken.add(id));const c=G.get(o.L.id).conns[o.L.ci];
+    moves.push({ci:o.ci,set,pose:{x:c.x,y:c.y,a:c.a,z:c.z}})}
+  const fOld=localConns(p,pc.d)[fx.ci].f;
+  pc.d=newD;pc.k=P(fx.ci);
+  const fNew=localConns(p,pc.d)[pc.k].f;if(fNew!==fOld)pc.rise=-pc.rise;
+  pc.att={x:F.x,y:F.y,a:F.a,z:F.z,s:0};setTransform(pc);rebuild();
+  const g=G.get(pc.id);
+  for(const b of blocked){const E=g.conns[P(b.ci)];
+    if(Math.hypot(E.x-b.pose.x,E.y-b.pose.y)>1||Math.abs(wrap(E.a-b.pose.a-PI))>.03){
+      const o=JSON.parse(undoStack.pop());st=o.st;ui.sel=o.sel;rebuild();changed();
+      toast('Im geschlossenen Kreis nicht möglich – erst ein Gleis daneben löschen');return}}
+  for(const m of moves){const E=g.conns[P(m.ci)];
+    moveSet(m.set,{x:m.pose.x,y:m.pose.y},m.pose.a,{x:E.x,y:E.y},wrap(E.a+PI),E.z-m.pose.z)}
+  rebuild();
+  if(st.active&&st.active.type==='conn'&&!openC.some(o=>o.id===st.active.id&&o.ci===st.active.ci))st.active=nextOpen(pc);
+  changed();
+  let msg=label+(moves.length?` · ${moves.reduce((a,m)=>a+m.set.size,0)} Gleise angepasst`:'');
+  toast(msg);
+}
+function del(pc){
+  snap();const L=links.get(key(pc.id,pc.k));
+  st.pieces=st.pieces.filter(x=>x!==pc);ui.sel=null;rebuild();
+  if(L&&byId(L.id))st.active={type:'conn',id:L.id,ci:L.ci};
+  else if(st.active&&st.active.id===pc.id)st.active=openC.length?{type:'conn',id:openC[0].id,ci:openC[0].ci}:{type:'cursor'};
+  if(!st.pieces.length)st.active={type:'cursor'};
+  changed();
+}
+
+/* ---------- In bestehenden Plan einsetzen ---------- */
+// ui.ins = {id, ci}: Stoß am Anschluss ci von Gleis id. Neues Gleis kommt zwischen dieses Gleis und seinen Nachbarn.
+function insJoint(){const o=ui.ins;if(!o||!byId(o.id)){ui.ins=null;return null}
+  const pc=byId(o.id),n=localConns(partOf(pc),pc.d).length;if(o.ci>=n){ui.ins=null;return null}
+  return{other:o,fixed:links.get(key(o.id,o.ci))||null}}
+function findFillers(rem,lens,tol=.6){
+  if(rem<tol)return[];
+  for(const a of lens)if(Math.abs(a-rem)<tol)return[a];
+  for(const a of lens)for(const b of lens)if(b<=a&&Math.abs(a+b-rem)<tol)return[a,b];
+  for(const a of lens)for(const b of lens)for(const c of lens)if(b<=a&&c<=b&&Math.abs(a+b+c-rem)<tol)return[a,b,c];
+  return null}
+function bestUnder(rem,lens){ // größte Kombination ≤ rem (max. 2 Stück), Rest wird Ausgleichsstück
+  let best=[],bs=0;
+  for(const a of lens){if(a<=rem+.6&&a>bs){best=[a];bs=a}
+    for(const b of lens)if(b<=a&&a+b<=rem+.6&&a+b>bs){best=[a,b];bs=a+b}}
+  return best}
+function downstream(startId,blockId){const seen=new Set([startId]),q=[startId];
+  while(q.length){const id=q.shift(),pc=byId(id);localConns(partOf(pc),pc.d).forEach((c,ci)=>{const L=links.get(key(id,ci));
+    if(L&&L.id!==blockId&&!seen.has(L.id)){seen.add(L.id);q.push(L.id)}})}
+  return seen}
+function moveSet(ids,P0,a0,P1,a1,dz){const dt=wrap(a1-a0),c=Math.cos(dt),s=Math.sin(dt);
+  const mv=o=>{const dx=o.x-P0.x,dy=o.y-P0.y;o.x=P1.x+c*dx-s*dy;o.y=P1.y+s*dx+c*dy};
+  for(const id of ids){const pc=byId(id);mv(pc);pc.r=wrap(pc.r+dt);pc.z0+=dz;
+    if(pc.att){mv(pc.att);pc.att.a=wrap(pc.att.a+dt);pc.att.z+=dz}}}
+function attachAt(conn,sys,pid,cu,d){st.active={type:'conn',id:conn.id,ci:conn.ci};const k=ui.cont;ui.cont=false;
+  const pc=placeRaw(sys,pid,cu,d);ui.cont=k;return pc}
+function insertPart(sys,pid,cu,d){
+  const J=insJoint();if(!J){toast('Einfügestelle nicht mehr vorhanden');ui.ins=null;changed(false);return}
+  const part=cu||SYS[sys].parts.find(q=>q.id===pid);
+  if(!J.fixed){ui.ins=null;st.active={type:'conn',id:J.other.id,ci:J.other.ci};place(sys,pid,cu,d);return}
+  snap();
+  const fixed=J.fixed,other=J.other,tL=part.t==='T'||part.t==='X'?part.L:0;let msg='';
+  // 1) Weiche/Kreuzung: gerade Gleise dahinter ersetzen – Plan bleibt geschlossen
+  if(tL){let chain=[],tot=0,cur=byId(other.id),enter=other.ci,after=null;
+    while(cur&&partOf(cur).t==='S'&&Math.abs(cur.rise)<.01&&chain.length<5){
+      chain.push(cur);tot+=partOf(cur).L;const ex=1-enter,nx=links.get(key(cur.id,ex));after=nx||null;
+      if(tot>=tL-.6||!nx)break;cur=byId(nx.id);enter=nx.ci}
+    if(chain.length&&tot>=tL-.6){
+      const sysK=chain[0].cu?sys:chain[0].sys,lens=SYS[sysK].parts.filter(q=>q.t==='S').map(q=>q.L).sort((a,b)=>b-a);
+      const rem=tot-tL;let fill=findFillers(rem,lens),cut=0;
+      if(!fill){fill=bestUnder(rem,lens);cut=+(rem-fill.reduce((a,b)=>a+b,0)).toFixed(1)}
+      const removed=chain.map(c=>pname(partOf(c)));
+      st.pieces=st.pieces.filter(x=>!chain.includes(x));rebuild();
+      const np=attachAt(fixed,sys,pid,cu,d);let last=np;rebuild();
+      let exitConn={type:'conn',id:np.id,ci:1};
+      const seq=fill.map(L=>({sys:sysK,pid:'S'+L,cu:null}));if(cut>.5)seq.push({sys:sysK,pid:null,cu:{id:'cS',t:'S',L:cut,fill:true}});
+      for(const f of seq){st.active=exitConn;last=placeRaw(f.sys,f.pid,f.cu,1);rebuild();exitConn={type:'conn',id:last.id,ci:1}}
+      rebuild();
+      msg=`${removed.join(' + ')} ersetzt`+(fill.length?` · Rest: ${fill.map(L=>fmt(L)).join(' + ')} mm`:'')+(cut>.5?` · Ausgleich ${fmt(cut)} mm zuschneiden`:'');
+      finishInsert(np,msg);return}
+  }
+  // 1b) Bogenweiche: passenden Bogen ersetzen – Plan bleibt geschlossen
+  if(part.t==='B'){const c0=byId(other.id),cp=partOf(c0);
+    if(cp.t==='C'&&Math.abs(c0.rise)<.01){
+      const sign=other.ci===0?c0.d:-c0.d,R=cp.R;
+      const thr=Math.abs(R-part.R2)<1&&(part.L0||0)<.5?1:Math.abs(R-part.R1)<1?2:0;
+      if(thr){let chain=[],tot=0,cur=c0,enter=other.ci;
+        while(cur){const q=partOf(cur),sg=enter===0?cur.d:-cur.d;
+          if(q.t!=='C'||Math.abs(q.R-R)>1||sg!==sign||Math.abs(cur.rise)>.01||chain.length>=5)break;
+          chain.push(cur);tot+=q.A;const nx=links.get(key(cur.id,1-enter));
+          if(tot>=part.A-.05||!nx)break;cur=byId(nx.id);enter=nx.ci}
+        if(chain.length&&tot>=part.A-.05){
+          const sysK=chain[0].cu?sys:chain[0].sys,arcs=SYS[sysK].parts.filter(q=>q.t==='C'&&Math.abs(q.R-R)<1);
+          const angs=[...new Set(arcs.map(q=>q.A))].sort((a,b)=>b-a);
+          const rem=tot-part.A;let fill=findFillers(rem,angs,.1),cut=0;
+          if(!fill){fill=bestUnder(rem,angs);cut=+(rem-fill.reduce((a,b)=>a+b,0)).toFixed(2)}
+          const removed=chain.map(c=>pname(partOf(c)));
+          st.pieces=st.pieces.filter(x=>!chain.includes(x));rebuild();
+          const np=attachAt(fixed,sys,pid,cu,sign);rebuild();
+          let exitConn={type:'conn',id:np.id,ci:thr};
+          const seq=fill.map(A=>({pid:arcs.find(q=>q.A===A).id,cu:null}));
+          if(cut>.05)seq.push({pid:null,cu:{id:'cC',t:'C',R,A:cut,fill:true}});
+          for(const f of seq){st.active=exitConn;const l=placeRaw(sysK,f.pid,f.cu,sign);rebuild();exitConn={type:'conn',id:l.id,ci:1}}
+          rebuild();
+          msg=`${removed.join(' + ')} ersetzt · Hauptgleis ${thr===1?'außen':'innen'}`+(fill.length?` · Rest: ${fill.map(a=>fmt(a)+'°').join(' + ')}`:'')+(cut>.05?` · Ausgleichsbogen ${fmt(cut)}°`:'');
+          finishInsert(np,msg);return}}}
+  }
+  // 2) Allgemein: einsetzen und folgenden Strang nachrücken
+  const set=downstream(other.id,fixed.id);
+  const fp=byId(fixed.id),loop=localConns(partOf(fp),fp.d).some((c,ci)=>{if(ci===fixed.ci)return false;const L=links.get(key(fp.id,ci));return L&&set.has(L.id)});
+  const ob=G.get(other.id).conns[other.ci];
+  const np=attachAt(fixed,sys,pid,cu,d);rebuild();
+  const E=G.get(np.id).conns[1];
+  moveSet(set,{x:ob.x,y:ob.y},ob.a,{x:E.x,y:E.y},wrap(E.a+PI),E.z-ob.z);rebuild();
+  msg=`Eingefügt · ${set.size} Gleis${set.size>1?'e':''} nachgerückt`;
+  if(loop){let gap=null;const fpg=G.get(fp.id);
+    for(const o of openC)for(const q of openC)if(o.id===fp.id&&set.has(q.id)){const d2=Math.hypot(o.c.x-q.c.x,o.c.y-q.c.y);if(gap===null||d2<gap)gap=d2}
+    msg+=gap!==null?` · Kreis offen: Lücke ${fmt(gap/10)} cm`:' · Kreis geöffnet'}
+  finishInsert(np,msg);
+}
+function finishInsert(np,msg){ui.ins=null;ui.sel=np.id;
+  const nxt=nextOpen(np);st.active=nxt||null;changed();toast(msg);
+  try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+function usePart(sys,pid,cu,d=ui.dir){if(ui.ins)insertPart(sys,pid,cu,d);else place(sys,pid,cu,d)}
+function startInsert(pc,ci){
+  if(ci===undefined){ci=links.has(key(pc.id,0))?0:links.has(key(pc.id,1))?1:0}
+  ui.ins={id:pc.id,ci};ui.sel=null;changed(false)}
+function openTurnoutPicker(pc){
+  const sysK=pc.cu?ui.sys:pc.sys,cp=partOf(pc);
+  if(cp.t==='C'){openCurvePicker(pc,sysK,cp);return}
+  const list=SYS[sysK].parts.filter(q=>q.t==='T'||q.t==='X');
+  openSheet('Weiche einsetzen',`<p>Die Weiche ersetzt dieses Gleis (und bei Bedarf das nächste gerade Gleis). Reicht die Länge nicht genau, ergänzt der Plan passende Geraden oder ein Ausgleichsstück zum Zuschneiden.</p>
+   <table><tbody>${list.map(q=>`<tr><td><b>${pname(q)}</b><br><span style="color:var(--muted);font-size:12px">${fmt(q.L)} mm${q.R?' · R'+fmt(q.R,0):''}</span></td>
+   <td style="text-align:right;white-space:nowrap">${q.t==='T'?`<button class="btn" data-w="${q.id}" data-d="1">◀ links</button> <button class="btn" data-w="${q.id}" data-d="-1">rechts ▶</button>`:`<button class="btn" data-w="${q.id}" data-d="1">einsetzen</button>`}</td></tr>`).join('')}</tbody></table>
+   <p>Danach kannst du mit „Anschluss“ die Weiche umdrehen und mit „Spiegeln“ die Abzweigseite wechseln.</p>`,()=>{
+    document.querySelectorAll('#sheetBody [data-w]').forEach(b=>b.onclick=()=>{$('sheet').hidden=true;startInsert(pc);insertPart(sysK,b.dataset.w,null,+b.dataset.d)})});
+}
+function openCurvePicker(pc,sysK,cp){
+  const list=SYS[sysK].parts.filter(q=>q.t==='B');
+  const fits=q=>Math.abs(q.R2-cp.R)<1&&(q.L0||0)<.5?'Hauptgleis außen':Math.abs(q.R1-cp.R)<1?'Hauptgleis innen':'';
+  openSheet('Bogenweiche einsetzen',`<p>Die Bogenweiche ersetzt diesen Bogen R${fmt(cp.R)}. Passt ein Radius der Weiche, bleibt der Plan geschlossen und der restliche Winkel wird mit Bögen aufgefüllt. Sonst wird der folgende Strang verschoben.</p>
+   ${list.length?`<table><tbody>${list.map(q=>{const f=fits(q);return`<tr><td><b>${pname(q)}</b><br><span style="font-size:12px;color:${f?'var(--ok)':'var(--muted)'}">${f?'passt · '+f:'Radius passt nicht · Strang wird verschoben'}</span></td>
+   <td style="text-align:right"><button class="btn${f?' primary':''}" data-w="${q.id}">einsetzen</button></td></tr>`}).join('')}</tbody></table>`:'<p>Dieses System hat keine Bogenweiche in der Liste. Unter „Eigen“ kannst du eine mit eigenen Maßen anlegen.</p>'}
+   <p>Die Abzweigrichtung folgt automatisch dem Bogen.</p>`,()=>{
+    document.querySelectorAll('#sheetBody [data-w]').forEach(b=>b.onclick=()=>{$('sheet').hidden=true;startInsert(pc);
+      const ci=ui.ins.ci,sign=ci===0?pc.d:-pc.d;insertPart(sysK,b.dataset.w,null,sign)})});
+}
+
+/* ---------- Farben ---------- */
+let COL={};
+function readColors(){const cs=getComputedStyle(document.documentElement);
+  for(const k of['bg','panel','ink','muted','line','accent','accent-ink','board','board-edge','grid','grid-strong','ballast','rail','tie','up','down','bad','warn','ok'])COL[k]=cs.getPropertyValue('--'+k).trim()}
+function hex(c){const m=c.replace('#','');return[parseInt(m.slice(0,2),16),parseInt(m.slice(2,4),16),parseInt(m.slice(4,6),16)]}
+function mix(a,b,t){const A=hex(a),B=hex(b);return`rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')})`}
+function zcol(z){if(Math.abs(z)<.5)return COL.ballast;const t=Math.min(1,Math.abs(z)/80);return mix(COL.ballast,z>0?COL.up:COL.down,.25+.65*t)}
+
+/* ---------- 2D ---------- */
+const cv=$('c2'),ctx=cv.getContext('2d');let dpr=1,W=0,H=0;
+// Ansicht bleibt fest: bei Größenänderung bleibt die Bildmitte, Zoom unverändert
+function resize(){const r=$('stage').getBoundingClientRect();if(r.width<2||r.height<2)return;
+  dpr=Math.min(window.devicePixelRatio||1,3);
+  if(W>0&&H>0){view.ox+=(r.width-W)/2;view.oy+=(r.height-H)/2}
+  W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);draw();
+  if(T3)size3()}
+let viewReady=false,savedView=null;
+let vsT=0;function saveView(){clearTimeout(vsT);vsT=setTimeout(save,300)}
+const sx=x=>x*view.s+view.ox, sy=y=>y*view.s+view.oy;
+function fit(){
+  if(W<50||H<50){requestAnimationFrame(fit);return}
+  let mnx=0,mny=0,mxx=st.board.w,mxy=st.board.d;
+  for(const g of G.values()){mnx=Math.min(mnx,g.bb[0]);mny=Math.min(mny,g.bb[1]);mxx=Math.max(mxx,g.bb[2]);mxy=Math.max(mxy,g.bb[3])}
+  const pad=24;view.s=Math.min((W-2*pad)/(mxx-mnx),(H-2*pad-30)/(mxy-mny));
+  view.ox=(W-(mxx-mnx)*view.s)/2-mnx*view.s;view.oy=(H-(mxy-mny)*view.s)/2-mny*view.s;draw();
+}
+function ensureVisible(pc){const g=G.get(pc.id);if(!g)return;const m=30;
+  const x0=sx(g.bb[0]),y0=sy(g.bb[1]),x1=sx(g.bb[2]),y1=sy(g.bb[3]);
+  if(x0<m)view.ox+=m-x0;else if(x1>W-60)view.ox-=x1-(W-60);
+  if(y0<m)view.oy+=m-y0;else if(y1>H-m)view.oy-=y1-(H-m);draw()}
+function poly(pts){ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(sx(q.x),sy(q.y)):ctx.moveTo(sx(q.x),sy(q.y)))}
+function pillText(x,y,txt,bg,fg){ctx.font='600 11px Barlow, system-ui, sans-serif';const w=ctx.measureText(txt).width+10;
+  ctx.fillStyle=bg;ctx.beginPath();ctx.roundRect?ctx.roundRect(x-w/2,y-8,w,16,8):ctx.rect(x-w/2,y-8,w,16);ctx.fill();
+  ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,y+.5)}
+function draw(){
+  if(!W)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=COL.bg;ctx.fillRect(0,0,W,H);
+  const s=view.s,B=st.board;
+  // Platte
+  ctx.fillStyle=COL.board;ctx.fillRect(sx(0),sy(0),B.w*s,B.d*s);
+  const step=s>1.6?50:100;
+  ctx.lineWidth=1;
+  for(let x=0;x<=B.w;x+=step){ctx.strokeStyle=x%500===0?COL['grid-strong']:COL.grid;ctx.beginPath();ctx.moveTo(sx(x)+.5,sy(0));ctx.lineTo(sx(x)+.5,sy(B.d));ctx.stroke()}
+  for(let y=0;y<=B.d;y+=step){ctx.strokeStyle=y%500===0?COL['grid-strong']:COL.grid;ctx.beginPath();ctx.moveTo(sx(0),sy(y)+.5);ctx.lineTo(sx(B.w),sy(y)+.5);ctx.stroke()}
+  ctx.strokeStyle=COL['board-edge'];ctx.lineWidth=2;ctx.strokeRect(sx(0),sy(0),B.w*s,B.d*s);
+  ctx.fillStyle=COL.muted;ctx.font='500 10px Barlow, system-ui, sans-serif';ctx.textBaseline='bottom';ctx.textAlign='center';
+  const lab=s<.35?50:(s<.7?20:10);
+  for(let x=0;x<=B.w;x+=100){const cm=x/10;if(cm%lab===0)ctx.fillText(cm+(x===B.w||cm===0?'':''),sx(x),sy(0)-3)}
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let y=100;y<=B.d;y+=100){const cm=y/10;if(cm%lab===0)ctx.fillText(cm,sx(0)-4,sy(y))}
+  ctx.textAlign='left';ctx.fillText(`${fmt(B.w/10,0)} × ${fmt(B.d/10,0)} cm`,sx(0),sy(B.d)+12);
+
+  const order=[...st.pieces].sort((a,b)=>G.get(a.id).avgz-G.get(b.id).avgz);
+  ctx.lineJoin='round';
+  for(const pc of order){const g=G.get(pc.id),high=g.avgz>=CLEAR*.6;
+    if(ui.sel===pc.id){ctx.strokeStyle=COL.accent;ctx.globalAlpha=.45;ctx.lineWidth=Math.max(8,33*s);ctx.lineCap='round';g.paths.forEach(p=>{poly(p);ctx.stroke()});ctx.globalAlpha=1}
+    ctx.lineCap='butt';
+    if(high){ctx.save();ctx.translate(4,5);ctx.strokeStyle='rgba(0,0,0,.22)';ctx.lineWidth=Math.max(3,26*s);g.paths.forEach(p=>{poly(p);ctx.stroke()});ctx.restore();
+      ctx.strokeStyle=COL.ink;ctx.lineWidth=Math.max(4,29*s);g.paths.forEach(p=>{poly(p);ctx.stroke()})}
+    for(const p of g.paths){const a=p[0],b=p[p.length-1];
+      if(Math.abs(a.z-b.z)>.5){const gr=ctx.createLinearGradient(sx(a.x),sy(a.y),sx(b.x),sy(b.y));gr.addColorStop(0,zcol(a.z));gr.addColorStop(1,zcol(b.z));ctx.strokeStyle=gr}
+      else ctx.strokeStyle=zcol(a.z);
+      ctx.lineWidth=Math.max(3,25*s);poly(p);ctx.stroke()}
+    if(s>1.0){ctx.strokeStyle=COL.tie;ctx.lineWidth=Math.max(1,1.6*s);ctx.beginPath();
+      for(const t of g.ties){ctx.moveTo(sx(t[0]),sy(t[1]));ctx.lineTo(sx(t[2]),sy(t[3]))}ctx.stroke()}
+    ctx.strokeStyle=COL.rail;ctx.lineWidth=Math.max(.8,.9*s);
+    for(const[l,r]of g.rails){if(s>.28){poly(l);ctx.stroke();poly(r);ctx.stroke()}else{poly(g.paths[0]);}}
+    // Stoßstellen
+    ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(1,1.2*s);ctx.beginPath();
+    for(const c of g.conns){const nx=-Math.sin(c.a)*12.5,ny=Math.cos(c.a)*12.5;ctx.moveTo(sx(c.x+nx),sy(c.y+ny));ctx.lineTo(sx(c.x-nx),sy(c.y-ny))}ctx.stroke();
+  }
+  // Steigungen & Höhen
+  if(s>.32){for(const pc of order){const g=G.get(pc.id);
+      if(Math.abs(g.grade)>.05){const p=g.paths[0],m=p[Math.floor(p.length/2)],gr=Math.abs(g.grade);
+        pillText(sx(m.x),sy(m.y),fmt(gr)+' %',gr>4?COL.bad:gr>3?COL.warn:COL.panel,gr>3?'#fff':COL.ink)}}
+    const seen=[];
+    for(const pc of st.pieces){const g=G.get(pc.id);g.conns.forEach(c=>{if(Math.abs(c.z)<1)return;
+      if(seen.some(q=>Math.hypot(q.x-c.x,q.y-c.y)<20))return;seen.push(c);
+      const ox=-Math.sin(c.a)*22,oy=Math.cos(c.a)*22;pillText(sx(c.x)+ox*Math.min(1,s*1.4),sy(c.y)+oy*Math.min(1,s*1.4),fz(c.z),COL.ink,COL.bg)})}}
+  // Konflikte & Höhensprünge
+  for(const c of conflicts){ctx.strokeStyle=COL.bad;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx(c.x),sy(c.y),Math.max(12,22*s),0,TAU);ctx.stroke();
+    pillText(sx(c.x),sy(c.y)-Math.max(12,22*s)-10,c.dz<1?'Überlappung':`nur ${Math.round(c.dz)} mm`,COL.bad,'#fff')}
+  for(const j of jumps){ctx.fillStyle=COL.warn;ctx.beginPath();const x=sx(j.x),y=sy(j.y);ctx.moveTo(x,y-11);ctx.lineTo(x+10,y+7);ctx.lineTo(x-10,y+7);ctx.closePath();ctx.fill();
+    pillText(x,y+18,`Sprung ${fmt(Math.abs(j.dz),0)} mm`,COL.warn,'#fff')}
+  // Einfügestelle
+  {const J=insJoint();if(J){const c=G.get(J.other.id).conns[J.other.ci],x=sx(c.x),y=sy(c.y),r=13;
+    ctx.save();ctx.translate(x,y);ctx.rotate(PI/4);ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.fillRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.strokeRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.restore();
+    pillText(x,y-24,'hier einfügen',COL.ink,COL.bg)}}
+  // offene Anschlüsse
+  for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if(isA)continue;
+    ctx.fillStyle=COL.panel;ctx.strokeStyle=COL.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx(o.c.x),sy(o.c.y),6,0,TAU);ctx.fill();ctx.stroke()}
+  // aktiver Anschluss / Startpunkt
+  let A=null;if(st.active&&st.active.type==='conn'&&G.get(st.active.id))A=G.get(st.active.id).conns[st.active.ci];
+  else if(st.active&&st.active.type==='cursor')A={x:st.cursor.x,y:st.cursor.y,a:st.cursor.a,cur:true};
+  if(A){const x=sx(A.x),y=sy(A.y),ca=Math.cos(A.a),sa=Math.sin(A.a);
+    ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x+ca*26,y+sa*26);ctx.lineTo(x-sa*11+ca*6,y+ca*11+sa*6);ctx.lineTo(x+sa*11+ca*6,y-ca*11+sa*6);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,8,0,TAU);ctx.fill();ctx.stroke();
+    if(A.cur){ctx.fillStyle=COL.ink;ctx.font='600 11px Barlow, system-ui, sans-serif';ctx.textAlign='center';ctx.fillText('Start',x,y-18)}}
+}
+
+/* ---------- Eingabe ---------- */
+const ptrs=new Map();let gest=null;
+function pos(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const p=pos(e);ptrs.set(e.pointerId,p);
+  if(ptrs.size===1){gest={t:'tap',x0:p.x,y0:p.y,ox:view.ox,oy:view.oy};
+    if(st.active&&st.active.type==='cursor'&&Math.hypot(sx(st.cursor.x)-p.x,sy(st.cursor.y)-p.y)<36)gest.t='drag0'}
+  else if(ptrs.size===2){const[a,b]=[...ptrs.values()];gest={t:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y),s0:view.s,m0:{x:(a.x+b.x)/2,y:(a.y+b.y)/2},ox:view.ox,oy:view.oy}}});
+cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=pos(e);ptrs.set(e.pointerId,p);if(!gest)return;
+  if(gest.t==='drag0'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>5){snap();gest.t='drag';gest.cx=st.cursor.x;gest.cy=st.cursor.y}
+  if(gest.t==='drag'&&ptrs.size===1){st.cursor.x=Math.round((gest.cx+(p.x-gest.x0)/view.s)/5)*5;st.cursor.y=Math.round((gest.cy+(p.y-gest.y0)/view.s)/5)*5;draw();renderCtx();return}
+  if(gest.t==='tap'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>7)gest.t='pan';
+  if(gest.t==='pan'&&ptrs.size===1){view.ox=gest.ox+p.x-gest.x0;view.oy=gest.oy+p.y-gest.y0;draw()}
+  if(gest.t==='pinch'&&ptrs.size===2){const[a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y),m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    const s=Math.max(.08,Math.min(8,gest.s0*d/gest.d0)),wx=(gest.m0.x-gest.ox)/gest.s0,wy=(gest.m0.y-gest.oy)/gest.s0;
+    view.s=s;view.ox=m.x-wx*s;view.oy=m.y-wy*s;draw()}});
+function up(e){if(!ptrs.has(e.pointerId))return;const p=ptrs.get(e.pointerId);
+  if(gest&&(gest.t==='tap'||gest.t==='drag0')&&ptrs.size===1)tap(p.x,p.y);
+  if(gest&&gest.t==='drag'){setStartMode(false);changed()}
+  if(gest&&(gest.t==='pan'||gest.t==='pinch'||gest.t==='none'))saveView();
+  ptrs.delete(e.pointerId);if(ptrs.size===0)gest=null;else if(gest&&gest.t==='pinch')gest={t:'none'}}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);if(!ptrs.size)gest=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e),f=Math.exp(-e.deltaY*.0015),s=Math.max(.08,Math.min(8,view.s*f));
+  const wx=(p.x-view.ox)/view.s,wy=(p.y-view.oy)/view.s;view.s=s;view.ox=p.x-wx*s;view.oy=p.y-wy*s;draw();saveView()},{passive:false});
+function tap(px,py){
+  const wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;
+  if(ui.ins&&ui.mode!=='start'){ui.ins=null}
+  if(ui.mode==='start'){snap();st.cursor={x:Math.round(wx/5)*5,y:Math.round(wy/5)*5,a:st.cursor.a,z:st.cursor.z};st.active={type:'cursor'};ui.sel=null;setStartMode(false);changed();return}
+  let best=null,bd=34;
+  for(const o of openC){const d=Math.hypot(sx(o.c.x)-px,sy(o.c.y)-py);if(d<bd){bd=d;best=o}}
+  if(best){st.active={type:'conn',id:best.id,ci:best.ci};ui.sel=null;changed(false);return}
+  let bp=null;bd=Math.max(16,14*view.s);
+  for(const pc of st.pieces){const g=G.get(pc.id);for(const p of g.paths)for(const q of p){const d=Math.hypot(sx(q.x)-px,sy(q.y)-py);if(d<bd){bd=d;bp=pc}}}
+  ui.sel=bp?bp.id:null;changed(false);
+}
+
+/* ---------- UI ---------- */
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2200)}
+function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip}}))}catch(e){}}
+function changed(doSave=true){if(doSave)save();renderCtx();updEdit();draw();if(ui.view3)queue3()}
+function totals(){let len=0,mg=0;for(const g of G.values()){len+=g.p.t==='T'?g.p.L:g.p.t==='X'?g.p.L:g.len;mg=Math.max(mg,Math.abs(g.grade))}return{len,mg}}
+function renderCtx(){
+  const el=$('ctx'),pc=ui.sel&&byId(ui.sel);
+  if(pc){const g=G.get(pc.id),p=g.p,gr=g.grade,cls=Math.abs(gr)>4?'bad':Math.abs(gr)>3?'warn':'';
+    el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
+    ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
+    <div class="stepper"><span>Niveau</span><button data-a="z-" aria-label="Strang absenken">−</button><output>${fz(pc.z0)}</output><button data-a="z+" aria-label="Strang anheben">+</button></div>
+    ${p.t!=='S'?`<div class="seg" role="group" aria-label="Richtung"><button data-a="dl" aria-pressed="${pc.d===1}">◀ Links</button><button data-a="dr" aria-pressed="${pc.d===-1}">Rechts ▶</button></div>`:''}
+    ${isTurnout(p)||p.t==='X'?'<button class="btn" data-a="flip" title="Gleis in Gegenrichtung einbauen">⇄ Umdrehen</button>':''}
+    ${isTurnout(p)?'<button class="btn" data-a="swap" title="Hauptstrang und Abzweig tauschen">⑂ Abzweig tauschen</button>':''}
+    ${p.t==='S'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Weiche einsetzen</button>':''}
+    ${p.t==='C'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Bogenweiche einsetzen</button>':''}
+    <button class="btn" data-a="ins">Davor einfügen</button>
+    <button class="btn danger" data-a="del">Löschen</button><button class="btn" data-a="x" aria-label="Auswahl aufheben">✕</button>`;
+  }else if(insJoint()){const J=insJoint(),o=byId(J.other.id);
+    el.innerHTML=`<div class="ctx-name"><b>Einfügen am Stoß</b><span>${J.fixed?'Gleis wählen · Strang wird angepasst':'Strangende · Gleis wählen'}</span></div>
+    <button class="btn" data-a="iflip">Andere Seite</button><button class="btn" data-a="icancel">Abbrechen</button>`;
+  }else if(st.active&&st.active.type==='cursor'){
+    const deg=Math.round(((st.cursor.a/DEG)%360+360)%360);
+    el.innerHTML=`<div class="ctx-name"><b>Startpunkt</b><span>X ${fmt(st.cursor.x/10)} · Y ${fmt(st.cursor.y/10)} cm</span></div>
+    <button class="btn primary" data-a="cexact">Genau eingeben</button>
+    <div class="stepper"><span>Richtung</span><button data-a="c-" aria-label="Links drehen">↺</button><output><span class="arrow" style="transform:rotate(${deg}deg)">➜</span> ${deg}°</output><button data-a="c+" aria-label="Rechts drehen">↻</button></div>
+    <div class="stepper"><span>Höhe</span><button data-a="cz-">−</button><output>${fz(st.cursor.z)}</output><button data-a="cz+">+</button></div>`;
+  }else{const t=totals();
+    const warn=[conflicts.length?`<span class="pill bad">${conflicts.length} Kollision${conflicts.length>1?'en':''}</span>`:'',
+      jumps.length?`<span class="pill warn">${jumps.length} Höhensprung</span>`:'',
+      !conflicts.length&&!jumps.length&&st.pieces.length?'<span class="pill ok">Plan ok</span>':''].join(' ');
+    el.innerHTML=`<div class="stat"><span><b>${st.pieces.length}</b> Gleise</span><span><b>${fmt(t.len/1000,2)}</b> m</span><span>max. <b>${fmt(t.mg)}</b> %</span>${bridges?`<span><b>${bridges}</b> Überführung${bridges>1?'en':''}</span>`:''}</div>${warn}
+    ${st.active?'':'<span style="color:var(--muted);font-size:12.5px;white-space:nowrap">Gelben Anschluss antippen, dann Gleis wählen</span>'}`;
+  }
+}
+$('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a,pc=ui.sel&&byId(ui.sel);
+  if(a==='x'){ui.sel=null;changed(false);return}
+  if(a==='icancel'){ui.ins=null;changed(false);return}
+  if(a==='iflip'&&ui.ins){const o=byId(ui.ins.id),n=localConns(partOf(o),o.d).length;ui.ins.ci=(ui.ins.ci+1)%n;changed(false);return}
+  if(a==='cexact'){openStart();return}
+  if(a==='c-'||a==='c+'){snap();st.cursor.a=wrap(st.cursor.a+(a==='c+'?15:-15)*DEG);changed();return}
+  if(a==='cz-'||a==='cz+'){snap();st.cursor.z+=a==='cz+'?5:-5;changed();return}
+  if(!pc)return;const p=partOf(pc);
+  if(a==='g-'||a==='g+'){snap();const g=Math.round((pc.rise/lenOf(p)*100+(a==='g+'?.5:-.5))*2)/2;pc.rise=+(g/100*lenOf(p)).toFixed(2);propagate(pc);changed()}
+  if(a==='z-'||a==='z+'){snap();pc.z0+=a==='z+'?5:-5;propagate(pc);changed()}
+  if((a==='dl'&&pc.d!==1)||(a==='dr'&&pc.d!==-1))reorient(pc,-pc.d,null,a==='dl'?'Nach links gedreht':'Nach rechts gedreht');
+  if(a==='flip'){const pm=p.t==='X'?{0:1,1:0,2:3,3:2}:{0:1,1:0};reorient(pc,p.t==='X'?pc.d:-pc.d,pm,'Umgedreht')}
+  if(a==='swap')reorient(pc,pc.d,{1:2,2:1},'Abzweig getauscht');
+  if(a==='del')del(pc);
+  if(a==='ins')startInsert(pc);
+  if(a==='wins')openTurnoutPicker(pc);
+});
+
+function iconSVG(p,d){
+  const paths=localPaths(p,d);let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
+  for(const pt of paths)for(const q of pt){mnx=Math.min(mnx,q[0]);mny=Math.min(mny,q[1]);mxx=Math.max(mxx,q[0]);mxy=Math.max(mxy,q[1])}
+  const w=mxx-mnx||1,h=mxy-mny||1,sc=Math.min(42/w,26/h),ox=(46-w*sc)/2,oy=(30-h*sc)/2;
+  const ds=paths.map(pt=>'M'+pt.map(q=>`${((q[0]-mnx)*sc+ox).toFixed(1)} ${((q[1]-mny)*sc+oy).toFixed(1)}`).join(' L')).join(' ');
+  return `<svg viewBox="0 0 46 30" aria-hidden="true"><path d="${ds}"/></svg>`;
+}
+const TABS=[['S','Gerade'],['C','Bögen'],['T','Weichen'],['X','Kreuz.'],['U','Eigen']];
+function renderPalette(){
+  const parts=SYS[ui.sys].parts,avail=TABS.filter(([t])=>t==='U'||parts.some(p=>p.t===t||(t==='T'&&p.t==='B')));
+  if(!avail.some(([t])=>t===ui.tab))ui.tab='S';
+  $('tabs').innerHTML=avail.map(([t,n])=>`<button data-t="${t}" aria-pressed="${t===ui.tab}">${n}</button>`).join('');
+  let h='';
+  if(ui.tab==='U'){
+    h=`<button class="chip wide" data-u="S">${iconSVG({t:'S',L:150},1)}<b>Flexgleis</b><small>Länge frei</small></button>
+       <button class="chip wide" data-u="C">${iconSVG({t:'C',R:300,A:30},ui.dir)}<b>Bogen</b><small>Radius frei</small></button>
+       <button class="chip wide" data-u="T">${iconSVG({t:'T',L:111,R:430,A:15},ui.dir)}<b>Weiche</b><small>Maße frei</small></button>
+       <button class="chip wide" data-u="B">${iconSVG({t:'B',R1:200,R2:240,A:30,L0:0},ui.dir)}<b>Bogenweiche</b><small>Maße frei</small></button>`;
+  }else for(const p of parts.filter(p=>p.t===ui.tab||(ui.tab==='T'&&p.t==='B'))){const[a,b]=chipText(p);h+=`<button class="chip" data-id="${p.id}" aria-label="${pname(p)}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${b}</small></button>`}
+  $('palette').innerHTML=h;$('palette').scrollLeft=0;
+}
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ui.tab=b.dataset.t;renderPalette();save()});
+$('palette').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
+  if(b.dataset.u)openCustom(b.dataset.u);else usePart(ui.sys,b.dataset.id,null)});
+function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===1);$('dirR').setAttribute('aria-pressed',d===-1);renderPalette();save()}
+$('dirL').onclick=()=>setDir(1);$('dirR').onclick=()=>setDir(-1);
+function setStartMode(on){ui.mode=on?'start':null;$('modeHint').hidden=!on;$('startBtn').setAttribute('aria-pressed',on);draw()}
+$('startBtn').onclick=()=>{if(ui.view3){setView(false)}
+  if(ui.mode==='start'){setStartMode(false);return}
+  st.active={type:'cursor'};ui.sel=null;setStartMode(true);changed(false)};
+function openStart(){const c=st.cursor,deg=Math.round(((c.a/DEG)%360+360)%360);
+  const fld=(id,lab,val)=>`<label class="field">${lab}<input id="${id}" type="number" inputmode="decimal" value="${val}"></label>`;
+  openSheet('Startpunkt',`<p>Abstand von der linken und oberen Plattenkante. Die Richtung zeigt, wohin das erste Gleis läuft: 0° nach rechts, 90° nach unten.</p>
+  <div class="fields">${fld('sx','X (cm)',+(c.x/10).toFixed(1))}${fld('sy','Y (cm)',+(c.y/10).toFixed(1))}${fld('sz','Höhe (mm)',Math.round(c.z))}</div>
+  <h3>Richtung</h3>
+  <div class="fields">${fld('sa','Winkel (°)',deg)}</div>
+  <div class="quick">${[[0,'➜ 0°'],[90,'⬇ 90°'],[180,'⬅ 180°'],[270,'⬆ 270°'],[45,'↘ 45°'],[315,'↗ 315°']].map(([d,l])=>`<button class="btn" data-q="${d}">${l}</button>`).join('')}</div>
+  <div class="acts"><button class="btn primary" id="sgo">Übernehmen</button><button class="btn" id="scenter">Plattenmitte</button></div>`,()=>{
+    document.querySelectorAll('.quick [data-q]').forEach(b=>b.onclick=()=>{$('sa').value=b.dataset.q});
+    $('scenter').onclick=()=>{$('sx').value=st.board.w/20;$('sy').value=st.board.d/20};
+    $('sgo').onclick=()=>{const x=parseFloat($('sx').value),y=parseFloat($('sy').value),z=parseFloat($('sz').value)||0,a=parseFloat($('sa').value)||0;
+      if(!isFinite(x)||!isFinite(y)){toast('Bitte X und Y in cm eingeben');return}
+      snap();st.cursor={x:x*10,y:y*10,a:wrap(a*DEG),z};st.active={type:'cursor'};ui.sel=null;$('sheet').hidden=true;setStartMode(false);changed();
+      };
+  })}
+$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('delBtn').onclick=delCurrent;$('copyBtn').onclick=copySel;$('pasteBtn').onclick=paste;
+function zoomBy(f){if(ui.view3&&T3){const c=T3.ctl,v=T3.cam.position.clone().sub(c.target).multiplyScalar(1/f);T3.cam.position.copy(c.target).add(v);c.update();return}
+  const px=W/2,py=H/2,s=Math.max(.08,Math.min(8,view.s*f)),wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;view.s=s;view.ox=px-wx*s;view.oy=py-wy*s;draw();saveView()}
+$('zinBtn').onclick=()=>zoomBy(1.4);$('zoutBtn').onclick=()=>zoomBy(1/1.4);
+// Seite selbst nicht zoomen lassen – nur die Zeichenfläche
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea,select'))e.preventDefault();lastTouchEnd=n},{passive:false});
+document.addEventListener('wheel',e=>{if(e.ctrlKey&&e.target!==cv)e.preventDefault()},{passive:false});
+document.addEventListener('keydown',e=>{if(e.target.closest('input,textarea,select'))return;const m=e.ctrlKey||e.metaKey;
+  if(m&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+  else if(m&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}
+  else if(m&&e.key.toLowerCase()==='c'){copySel()}
+  else if(m&&e.key.toLowerCase()==='v'){paste()}
+  else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();delCurrent()}});
+$('fitBtn').onclick=()=>{if(ui.view3&&T3)frame3();else{fit();saveView()}};
+const sel=$('sys');sel.innerHTML=Object.entries(SYS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
+sel.onchange=()=>{ui.sys=sel.value;renderPalette();save()};
+
+/* ---------- Sheet ---------- */
+function openSheet(title,html,bind){$('sheetTitle').textContent=title;$('sheetBody').innerHTML=html;$('sheet').hidden=false;bind&&bind()}
+$('sheetClose').onclick=()=>$('sheet').hidden=true;
+$('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
+function bom(){const m=new Map();
+  for(const pc of st.pieces){const p=partOf(pc),src=pc.cu?'Eigenes Maß':SYS[pc.sys].name;
+    const n=pname(p)+(isTurnout(p)?(pc.d===1?' links':' rechts'):'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+    const k=src+'|'+n;m.set(k,(m.get(k)||0)+1)}
+  return[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}})}
+$('menuBtn').onclick=()=>{
+  const rows=bom(),t=totals();
+  openSheet('Plan',`
+  <h3>Stückliste</h3>
+  ${rows.length?`<table><thead><tr><th>System</th><th>Gleis</th><th style="text-align:right">Stk.</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.s}</td><td>${r.n}</td><td class="n">${r.v}</td></tr>`).join('')}</tbody></table>
+  <p>${st.pieces.length} Teile, ${fmt(t.len/1000,2)} m Gleis. Weichen „links“ zweigen in Fahrtrichtung nach links ab.</p>`:'<p>Noch keine Gleise gelegt.</p>'}
+  <h3>Einstellungen</h3>
+  <div class="acts" style="margin-top:0"><button class="btn" id="cont" aria-pressed="${ui.cont}">Steigung automatisch übernehmen</button></div>
+  <p>Ist das an, setzen neue Gleise die Steigung des vorherigen Gleises fort. So entstehen Rampen in einem Zug.</p>
+  <h3>Anlagenplatte</h3>
+  <div class="fields"><label class="field">Breite (cm)<input id="bw" type="number" inputmode="decimal" value="${st.board.w/10}"></label>
+  <label class="field">Tiefe (cm)<input id="bd" type="number" inputmode="decimal" value="${st.board.d/10}"></label>
+  <div class="field">&nbsp;<button class="btn primary" id="bset">Übernehmen</button></div></div>
+  <h3>Richtwerte Spur N</h3>
+  <div class="rules">
+   <div class="rule"><b>${CLEAR} mm</b><span>Höhenabstand Schienenoberkante zu Schienenoberkante bei Überführungen (mit dünner Brücke). Darunter meldet der Plan eine Kollision.</span></div>
+   <div class="rule"><b>≤ 3 %</b><span>Steigung, die die meisten Züge sicher schaffen. Ab 3 % wird die Anzeige orange, ab 4 % rot.</span></div>
+   <div class="rule"><b>≈ 33 mm</b><span>Gleisabstand bei Parallelgleisen (Kato 33, Minitrix/Fleischmann 33,6).</span></div>
+  </div>
+  <p>Gleismaße sind Katalogwerte, gerundet. Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
+  <div id="pwaSlot"></div>
+  <h3>Speichern & Teilen</h3>
+  <p>Der Plan wird automatisch in diesem Browser gespeichert. Zum Sichern oder Weitergeben den Plan als Text kopieren.</p>
+  <div class="acts"><button class="btn primary" id="cp">Plan kopieren</button><button class="btn" id="ex">Beispiel laden</button><button class="btn danger" id="nw">Neuer Plan</button></div>
+  <div id="nwc" hidden class="acts"><span style="align-self:center">Alle Gleise löschen?</span><button class="btn danger" id="nwy">Ja, löschen</button><button class="btn" id="nwn">Abbrechen</button></div>
+  <label class="field" style="margin-top:12px">Plan-Text einfügen<textarea id="imp" placeholder='{"v":1,…}'></textarea></label>
+  <div class="acts"><button class="btn" id="ld">Plan laden</button></div>`,()=>{
+    if(window.__pwaSheet)window.__pwaSheet();
+    $('cont').onclick=()=>{ui.cont=!ui.cont;$('cont').setAttribute('aria-pressed',ui.cont);save()};
+    $('bset').onclick=()=>{const w=parseFloat($('bw').value),d=parseFloat($('bd').value);if(!(w>10&&d>10)){toast('Bitte Maße in cm eingeben');return}
+      snap();st.board={w:w*10,d:d*10};changed();toast('Platte angepasst')};
+    $('cp').onclick=()=>{const txt=JSON.stringify({v:1,st});const ta=$('imp');
+      navigator.clipboard.writeText(txt).then(()=>toast('Plan in die Zwischenablage kopiert'),()=>{ta.value=txt;ta.select();toast('Text markiert – bitte manuell kopieren')})};
+    $('ex').onclick=()=>{snap();loadSample();$('sheet').hidden=true;changed()};
+    $('nw').onclick=()=>{$('nwc').hidden=false};$('nwn').onclick=()=>{$('nwc').hidden=true};
+    $('nwy').onclick=()=>{snap();st={board:st.board,pieces:[],cursor:{x:Math.round(st.board.w*.25),y:Math.round(st.board.d*.5),a:0,z:0},active:{type:'cursor'},nid:1};ui.sel=null;rebuild();$('sheet').hidden=true;changed()};
+    $('ld').onclick=()=>{try{const o=JSON.parse($('imp').value);if(!o.st||!Array.isArray(o.st.pieces))throw 0;snap();st=o.st;ui.sel=null;rebuild();$('sheet').hidden=true;changed();toast('Plan geladen – ⤢ zeigt den ganzen Plan')}catch(e){toast('Der Text ist kein gültiger Plan')}};
+  });
+};
+function openCustom(focus){
+  const c=ui.cust||(ui.cust={L:150,R:300,A:30,wL:111,wR:430,wA:15});
+  const fld=(id,lab,val)=>`<label class="field">${lab}<input id="${id}" type="number" inputmode="decimal" value="${val}"></label>`;
+  const side=ui.dir===1?'links':'rechts';
+  const body={
+    S:['Flexgleis',`<p>Gerades Stück in beliebiger Länge, z. B. für Flexgleis oder Arnold.</p><div class="fields">${fld('cl','Länge (mm)',c.L)}</div><div class="acts"><button class="btn primary" id="go">Gerade legen</button></div>`],
+    C:['Eigener Bogen',`<p>Bogen nach ${side}. Die Richtung stellst du unten mit L/R um.</p><div class="fields">${fld('cr','Radius (mm)',c.R)}${fld('ca','Winkel (°)',c.A)}</div><div class="acts"><button class="btn primary" id="go">Bogen legen</button></div>`],
+    T:['Eigene Weiche',`<p>Weiche nach ${side}. Länge des geraden Strangs, Radius und Winkel des Abzweigs.</p><div class="fields">${fld('wl','Länge (mm)',c.wL)}${fld('wr','Radius (mm)',c.wR)}${fld('wa','Winkel (°)',c.wA)}</div><div class="acts"><button class="btn primary" id="go">Weiche legen</button></div>`],
+    B:['Eigene Bogenweiche',`<p>Bogenweiche nach ${side}. Innen der kleinere Radius, außen der größere; beide Stränge enden im selben Winkel. Ein gerader Vorlauf vor dem Außenbogen ist optional.</p><div class="fields">${fld('b1','Radius innen (mm)',c.bR1||192)}${fld('b2','Radius außen (mm)',c.bR2||225.6)}${fld('ba','Winkel (°)',c.bA||30)}${fld('b0','Vorlauf außen (mm)',c.bL0||0)}</div><div class="acts"><button class="btn primary" id="go">Bogenweiche legen</button></div>`]}[focus||'S'];
+  openSheet(body[0],body[1],()=>{
+    const v=id=>parseFloat($(id).value);
+    const go=cu=>{if(Object.values(cu).some(x=>typeof x==='number'&&!(x>0))){toast('Bitte positive Werte eingeben');return}$('sheet').hidden=true;usePart('kato',null,cu)};
+    $('go').onclick=()=>{
+      if(focus==='C'){c.R=v('cr');c.A=Math.min(180,v('ca'));go({id:'cC',t:'C',R:c.R,A:c.A})}
+      else if(focus==='B'){c.bR1=v('b1');c.bR2=v('b2');c.bA=Math.min(90,v('ba'));c.bL0=Math.max(0,v('b0')||0);
+        if(!(c.bR2>c.bR1)){toast('Außenradius muss größer als Innenradius sein');return}
+        if(!(c.bR1>0&&c.bA>0)){toast('Bitte positive Werte eingeben');return}
+        $('sheet').hidden=true;usePart('kato',null,{id:'cB',t:'B',R1:c.bR1,R2:c.bR2,A:c.bA,L0:c.bL0,name:'Bogenweiche'})}
+      else if(focus==='T'){c.wL=v('wl');c.wR=v('wr');c.wA=Math.min(45,v('wa'));go({id:'cT',t:'T',L:c.wL,R:c.wR,A:c.wA,name:'Weiche'})}
+      else{c.L=v('cl');go({id:'cS',t:'S',L:c.L})}
+      save()};
+  });
+};
+
+/* ---------- Ansicht umschalten ---------- */
+function setView(v3){ui.view3=v3;$('v2').setAttribute('aria-pressed',!v3);$('v3').setAttribute('aria-pressed',v3);
+  cv.hidden=v3;$('c3wrap').hidden=!v3;document.querySelector('.legend').hidden=v3;setStartMode(false);
+  if(v3)load3D().then(()=>{if(!T3)init3D();size3();build3D();frame3IfNew();loop()}).catch(()=>{toast('3D konnte nicht geladen werden');setView(false)});
+  else draw()}
+$('v2').onclick=()=>setView(false);$('v3').onclick=()=>setView(true);
+
+/* ---------- 3D ---------- */
+let T3=null,framed=false,q3=null,raf=0;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+function load3D(){if(window.THREE&&THREE.OrbitControls)return Promise.resolve();
+  return loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js').then(()=>loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'))}
+function init3D(){
+  const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;$('c3wrap').appendChild(r.domElement);
+  const scene=new THREE.Scene();const cam=new THREE.PerspectiveCamera(40,1,5,30000);
+  scene.add(new THREE.HemisphereLight(0xf4f1ea,0x4a4436,.75));
+  const sun=new THREE.DirectionalLight(0xffffff,.7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);scene.add(sun.target);
+  const ctl=new THREE.OrbitControls(cam,r.domElement);ctl.enableDamping=true;ctl.dampingFactor=.12;ctl.maxPolarAngle=86*DEG;ctl.minDistance=60;ctl.maxDistance=8000;
+  T3={r,scene,cam,ctl,sun,group:new THREE.Group()};scene.add(T3.group);
+}
+function size3(){if(!T3)return;const w=$('stage').clientWidth,h=$('stage').clientHeight;T3.r.setSize(w,h);T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix()}
+function frame3IfNew(){if(!framed){frame3();framed=true}}
+function frame3(){const B=st.board,c=new THREE.Vector3(B.w/2,0,B.d/2),R=Math.max(B.w,B.d);
+  T3.ctl.target.copy(c);T3.cam.position.set(B.w/2,R*.75,B.d/2+R*.95);T3.ctl.update()}
+function loop(){cancelAnimationFrame(raf);const f=()=>{if(!ui.view3||!T3)return;T3.ctl.update();T3.r.render(T3.scene,T3.cam);raf=requestAnimationFrame(f)};f()}
+function queue3(){clearTimeout(q3);q3=setTimeout(()=>{if(T3)build3D()},60)}
+function MB(){const pos=[],idx=[];return{pos,idx,
+  strip(A,B){const base=pos.length/3;for(let i=0;i<A.length;i++)pos.push(...A[i],...B[i]);
+    for(let i=0;i<A.length-1;i++){const a=base+2*i;idx.push(a,a+1,a+2,a+1,a+3,a+2)}},
+  mesh(mat){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
+    const m=new THREE.Mesh(g,mat);m.castShadow=true;m.receiveShadow=true;return m}}}
+function ribbon(mb,pts,hw,top,thick){
+  const P=offsetPath(pts,0),L=[],R=[],Lb=[],Rb=[];
+  for(const p of P){const nx=-Math.sin(p.h)*hw,ny=Math.cos(p.h)*hw,h=p.z+top;
+    L.push([p.x+nx,h,p.y+ny]);R.push([p.x-nx,h,p.y-ny]);Lb.push([p.x+nx,h-thick,p.y+ny]);Rb.push([p.x-nx,h-thick,p.y-ny])}
+  mb.strip(R,L);mb.strip(L,Lb);mb.strip(Rb,R);
+}
+function build3D(){
+  const g=T3.group;while(g.children.length){const c=g.children.pop();c.geometry&&c.geometry.dispose();c.material&&c.material.dispose()}
+  T3.scene.background=new THREE.Color(COL.bg);
+  const B=st.board,anyLow=st.pieces.some(pc=>G.get(pc.id).avgz<-5);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(B.w,18,B.d),new THREE.MeshLambertMaterial({color:0x8fa36b,transparent:anyLow,opacity:anyLow?.55:1}));
+  board.position.set(B.w/2,-9,B.d/2);board.receiveShadow=true;g.add(board);
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(B.w+8,40,B.d+8),new THREE.MeshLambertMaterial({color:0xb08a5a}));frame.position.set(B.w/2,-38.5,B.d/2);g.add(frame);
+  const bed=MB(),rail=MB(),bridgeSide=MB();let nTies=0;
+  for(const pc of st.pieces){const ge=G.get(pc.id);for(const p of ge.paths)ribbon(bed,p,12.5,3,6);
+    for(const[l,r]of ge.rails){ribbon(rail,l,.45,4.6,1.6);ribbon(rail,r,.45,4.6,1.6)}nTies+=ge.ties.length;
+    for(const p of ge.paths){if(p.some(q=>q.z>CLEAR*.6)){const P=offsetPath(p,0);
+      const sideA=offsetPath(p,13),sideB=offsetPath(p,-13);
+      for(const S of[sideA,sideB]){const T=S.map(q=>[q.x,q.z+8,q.y]),Bt=S.map(q=>[q.x,q.z-4,q.y]);bridgeSide.strip(T,Bt)}}}}
+  g.add(bed.mesh(new THREE.MeshLambertMaterial({color:0x8b847a,side:THREE.DoubleSide})));
+  g.add(rail.mesh(new THREE.MeshPhongMaterial({color:0xb9c0c8,shininess:80,side:THREE.DoubleSide})));
+  if(bridgeSide.pos.length)g.add(bridgeSide.mesh(new THREE.MeshLambertMaterial({color:0x6b5844,side:THREE.DoubleSide})));
+  if(nTies){const im=new THREE.InstancedMesh(new THREE.BoxGeometry(16,1.2,1.7),new THREE.MeshLambertMaterial({color:0x5a4634}),nTies);
+    const o=new THREE.Object3D();let i=0;
+    for(const pc of st.pieces)for(const t of G.get(pc.id).ties){const x=(t[0]+t[2])/2,y=(t[1]+t[3])/2,a=Math.atan2(t[3]-t[1],t[2]-t[0]);
+      o.position.set(x,t[4]+3.4,y);o.rotation.set(0,-a,0);o.updateMatrix();im.setMatrixAt(i++,o.matrix)}
+    im.castShadow=true;g.add(im)}
+  // Pfeiler
+  const piers=[];for(const pc of st.pieces){const ge=G.get(pc.id);for(const p of ge.paths){let acc=40;
+    for(let i=1;i<p.length;i++){acc+=Math.hypot(p[i].x-p[i-1].x,p[i].y-p[i-1].y);if(acc>=90&&p[i].z>6){acc=0;piers.push(p[i])}}}}
+  if(piers.length){const geo=new THREE.BoxGeometry(14,1,14);geo.translate(0,.5,0);
+    const im=new THREE.InstancedMesh(geo,new THREE.MeshLambertMaterial({color:0xc7c0b3}),piers.length),o=new THREE.Object3D();
+    piers.forEach((p,i)=>{o.position.set(p.x,0,p.y);o.scale.set(1,Math.max(1,p.z-3),1);o.updateMatrix();im.setMatrixAt(i,o.matrix)});im.castShadow=true;g.add(im)}
+  for(const c of conflicts){const m=new THREE.Mesh(new THREE.SphereGeometry(14,16,12),new THREE.MeshBasicMaterial({color:0xe03131,transparent:true,opacity:.75}));m.position.set(c.x,25,c.y);g.add(m)}
+  const R=Math.max(B.w,B.d);T3.sun.position.set(B.w*.2,R*1.2,-B.d*.4);T3.sun.target.position.set(B.w/2,0,B.d/2);
+  const sc=T3.sun.shadow.camera;sc.left=-R*.8;sc.right=R*.8;sc.top=R*.8;sc.bottom=-R*.8;sc.near=10;sc.far=R*4;sc.updateProjectionMatrix();
+}
+
+/* ---------- Beispiel ---------- */
+function loadSample(){
+  st={board:{w:1500,d:700},pieces:[],cursor:{x:502,y:636,a:0,z:0},active:{type:'cursor'},nid:1};
+  const keep=ui.cont;ui.cont=false;const add=(pid,d=1)=>placeRaw('kato',pid,null,d);
+  const w=add('W4',1);add('S124');add('S248');for(let i=0;i<4;i++)add('C282-45',1);
+  add('S248');add('S248');for(let i=0;i<4;i++)add('C282-45',1);
+  st.active={type:'conn',id:w.id,ci:2};add('C315-15',-1);
+  const a=add('S124'),b=add('S124');a.rise=b.rise=3.72;propagate(a);
+  st.active={type:'conn',id:b.id,ci:1};ui.cont=keep;ui.sel=null;rebuild();
+  // auf der Platte zentrieren
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const g of G.values()){x0=Math.min(x0,g.bb[0]);y0=Math.min(y0,g.bb[1]);x1=Math.max(x1,g.bb[2]);y1=Math.max(y1,g.bb[3])}
+  const dx=Math.round((st.board.w-(x1-x0))/2-x0),dy=Math.round((st.board.d-(y1-y0))/2-y0);
+  for(const pc of st.pieces){pc.x+=dx;pc.y+=dy;if(pc.att){pc.att.x+=dx;pc.att.y+=dy}}
+  st.cursor.x+=dx;st.cursor.y+=dy;rebuild();
+}
+
+/* ---------- Start ---------- */
+function init(){
+  readColors();
+  let loaded=false,sv=null;try{const o=JSON.parse(localStorage.getItem('nplan.v1')||'null');if(o&&o.st&&Array.isArray(o.st.pieces)){st=o.st;Object.assign(ui,o.ui||{});loaded=true;if(o.view&&o.view.s>0&&o.view.w>0)sv=o.view}}catch(e){}
+  savedView=sv;
+  if(!loaded)loadSample();
+  if(!SYS[ui.sys])ui.sys='kato';sel.value=ui.sys;
+  setDir(ui.dir);
+  rebuild();renderPalette();renderCtx();updEdit();
+  new ResizeObserver(()=>resize()).observe($('stage'));resize();
+  const startView=()=>{if(W<50||H<50){requestAnimationFrame(startView);return}
+    if(sv){view.s=sv.s;view.ox=sv.ox+(W-sv.w)/2;view.oy=sv.oy+(H-sv.h)/2;draw()}else fit();
+    viewReady=true;save()};
+  requestAnimationFrame(()=>requestAnimationFrame(startView));
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{renderCtx();draw()});
+  const re=()=>{readColors();draw();if(ui.view3&&T3)build3D()};
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',re);
+  new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+}
+init();
+window.__plan={get:()=>JSON.stringify({v:1,st}),
+  load(txt){const o=JSON.parse(txt);if(!o.st||!Array.isArray(o.st.pieces))throw new Error('kein Plan');snap();st=o.st;ui.sel=null;rebuild();$('sheet').hidden=true;changed()},
+  toast:t=>toast(t)};
+})();
+</script>
