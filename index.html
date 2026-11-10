@@ -170,7 +170,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 .fab button{width:46px;height:46px}
 .fab button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .editbar{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 2px 8px rgba(0,0,0,.12);max-width:calc(100% - 80px);overflow-x:auto;scrollbar-width:none}
-.editbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:50px;height:46px;border:0;border-radius:9px;background:transparent;padding:0 6px}
+.editbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:46px;height:46px;border:0;border-radius:9px;background:transparent;padding:0 4px}
 .editbar button:active:not(:disabled){background:var(--accent-soft)}
 .editbar button:disabled{opacity:.35}
 .editbar .ic{font-size:18px;line-height:1}
@@ -195,6 +195,10 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 .chip.wide{width:auto;padding:4px 14px}
 .chip.auto{width:auto;min-width:60px;padding:4px 9px}
 @media (max-width:480px){
+  .editbar{gap:0;padding:2px}
+  .editbar button{min-width:40px;padding:0 2px}
+  .editbar small{font-size:9px}
+  .editbar .sep{margin:6px 1px}
   #simBar{gap:6px}
   .brand h1{display:none}
   .top{gap:6px;padding-block:6px}
@@ -269,6 +273,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
       <button id="delBtn" class="del" aria-label="Löschen"><span class="ic">✕</span><small>Löschen</small></button>
       <button id="copyBtn" aria-label="Kopieren"><span class="ic">⧉</span><small>Kopieren</small></button>
       <button id="pasteBtn" aria-label="Einfügen"><span class="ic">⤓</span><small>Einfügen</small></button>
+      <button id="joinBtn" aria-label="Zwei offene Enden verbinden" aria-pressed="false"><span class="ic">⟷</span><small>Verbinden</small></button>
       <span class="sep"></span>
       <button id="startBtn" aria-label="Startpunkt festlegen" aria-pressed="false"><span class="ic">⌖</span><small>Start</small></button>
     </div>
@@ -386,7 +391,7 @@ function partOf(pc){return pc.cu||SYS[pc.sys].parts.find(p=>p.id===pc.pid)}
 function lenOf(p){return p.t==='C'?p.R*p.A*DEG:p.t==='B'?(p.L0||0)+p.R2*p.A*DEG:p.L}
 const flat=p=>p.t==='T'||p.t==='X'||p.t==='B';
 const isTurnout=p=>p.t==='T'||p.t==='B';
-function pname(p){if(p.fn)return p.t==='C'?`${p.name} R${fmt(p.R)} · ${fmt(p.A)}°`:`${p.name} ${fmt(p.L)} mm`;switch(p.t){
+function pname(p){if(p.flex)return p.t==='C'?`Flexgleis gebogen R${fmt(p.R,0)} · ${fmt(p.A)}°`:`Flexgleis ${fmt(p.L)} mm`;if(p.fn)return p.t==='C'?`${p.name} R${fmt(p.R)} · ${fmt(p.A)}°`:`${p.name} ${fmt(p.L)} mm`;switch(p.t){
   case'S':return p.fill?`Ausgleichsstück ${fmt(p.L)} mm`:`Gerade ${fmt(p.L)} mm`;
   case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen R${fmt(p.R)} · ${fmt(p.A)}°`;
   case'T':{const n=p.three?'Dreiwegweiche':(p.name||'Weiche');return `${n.includes('°')?n:n+' '+fmt(p.A)+'°'} · R${fmt(p.R,0)}`}
@@ -864,13 +869,15 @@ function draw(){
     ctx.save();ctx.translate(x,y);ctx.rotate(PI/4);ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.fillRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.strokeRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.restore();
     pillText(x,y-24,'hier einfügen',COL.ink,COL.bg)}}
   // offene Anschlüsse
-  for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if(isA||!onLv(o.id))continue;
-    ctx.fillStyle=COL.panel;ctx.strokeStyle=COL.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx(o.c.x),sy(o.c.y),6,0,TAU);ctx.fill();ctx.stroke()}
+  const joinM=ui.mode==='join';
+  for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if((isA&&!joinM)||(!onLv(o.id)&&!joinM))continue;
+    const sel=joinM&&ui.joinA&&ui.joinA.id===o.id&&ui.joinA.ci===o.ci,r=joinM?(sel?13:9):6;
+    ctx.fillStyle=sel?COL.accent:COL.panel;ctx.strokeStyle=joinM?COL.ink:COL.accent;ctx.lineWidth=joinM?3:2.5;ctx.beginPath();ctx.arc(sx(o.c.x),sy(o.c.y),r,0,TAU);ctx.fill();ctx.stroke()}
   drawTrain2D();placeSwitches();
   // aktiver Anschluss / Startpunkt
   let A=null;if(st.active&&st.active.type==='conn'&&G.get(st.active.id))A=G.get(st.active.id).conns[st.active.ci];
   else if(st.active&&st.active.type==='cursor')A={x:st.cursor.x,y:st.cursor.y,a:st.cursor.a,cur:true};
-  if(A){const x=sx(A.x),y=sy(A.y),ca=Math.cos(A.a),sa=Math.sin(A.a);
+  if(A&&!joinM){const x=sx(A.x),y=sy(A.y),ca=Math.cos(A.a),sa=Math.sin(A.a);
     ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(x+ca*26,y+sa*26);ctx.lineTo(x-sa*11+ca*6,y+ca*11+sa*6);ctx.lineTo(x+sa*11+ca*6,y-ca*11+sa*6);ctx.closePath();ctx.fill();ctx.stroke();
     ctx.beginPath();ctx.arc(x,y,8,0,TAU);ctx.fill();ctx.stroke();
@@ -923,6 +930,12 @@ cv.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e),f=Math.exp(-e.
 function tap(px,py){
   const wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;
   if(ui.ins&&ui.mode!=='start'){ui.ins=null}
+  if(ui.mode==='join'){let best=null,bd=34;
+    for(const o of openC){const d=Math.hypot(sx(o.c.x)-px,sy(o.c.y)-py);if(d<bd){bd=d;best=o}}
+    if(!best){toast('Kein offenes Ende getroffen');return}
+    if(!ui.joinA){ui.joinA={id:best.id,ci:best.ci};$('modeHint').textContent='Verbinden: zweites offenes Ende antippen · ✕ hier beenden';draw();return}
+    if(ui.joinA.id===best.id&&ui.joinA.ci===best.ci){ui.joinA=null;$('modeHint').textContent='Verbinden: erstes offenes Ende antippen · ✕ hier beenden';draw();return}
+    const A=ui.joinA;setJoinMode(false);joinEnds(A,{id:best.id,ci:best.ci});return}
   if(ui.mode==='mark'){let best=null,bd=30;
     for(const pc of st.pieces){if(!onLv(pc.id))continue;G.get(pc.id).conns.forEach((c,ci)=>{const d=Math.hypot(sx(c.x)-px,sy(c.y)-py);if(d<bd){bd=d;best={id:pc.id,ci}}})}
     if(best)toggleMark(best.id,best.ci,ui.markK);else toast('Keine Gleisverbindung getroffen – näher an einen Stoß tippen');return}
@@ -1040,7 +1053,7 @@ function setMarkMode(k){if(ui.mode==='mark'&&ui.markK===k){ui.mode=null;ui.markK
   renderPalette();draw()}
 function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===1);$('dirR').setAttribute('aria-pressed',d===-1);renderPalette();save()}
 $('dirL').onclick=()=>setDir(1);$('dirR').onclick=()=>setDir(-1);
-$('modeHint').onclick=()=>{if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
+$('modeHint').onclick=()=>{if(ui.mode==='join')setJoinMode(false);else if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
 function setStartMode(on){if(on&&ui.mode==='mark'){ui.markK=null;renderPalette()}ui.mode=on?'start':null;$('modeHint').hidden=!on;if(on)$('modeHint').textContent='Auf die Platte tippen oder den gelben Pfeil ziehen';$('startBtn').setAttribute('aria-pressed',on);draw()}
 $('startBtn').onclick=()=>{if(ui.view3){setView(false)}
   if(ui.mode==='start'){setStartMode(false);return}
@@ -1060,6 +1073,7 @@ function openStart(){const c=st.cursor,deg=Math.round(((c.a/DEG)%360+360)%360);
       snap();st.cursor={x:x*10,y:y*10,a:wrap(a*DEG),z};st.active={type:'cursor'};ui.sel=null;$('sheet').hidden=true;setStartMode(false);changed();
       };
   })}
+$('joinBtn').onclick=()=>{if(ui.view3)setView(false);if(openC.length<2){toast('Dafür braucht es zwei offene Enden');return}setJoinMode(ui.mode!=='join')};
 $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('delBtn').onclick=delCurrent;$('copyBtn').onclick=copySel;$('pasteBtn').onclick=paste;
 function zoomBy(f){if(ui.view3&&T3){const c=T3.ctl,v=T3.cam.position.clone().sub(c.target).multiplyScalar(1/f);T3.cam.position.copy(c.target).add(v);c.update();return}
   const px=W/2,py=H/2,s=Math.max(.08,Math.min(8,view.s*f)),wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;view.s=s;view.ox=px-wx*s;view.oy=py-wy*s;draw();saveView()}
@@ -1084,11 +1098,14 @@ function openSheet(title,html,bind){$('sheetTitle').textContent=title;$('sheetBo
 $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
 function bom(){const m=new Map();
-  for(const pc of st.pieces){const p=partOf(pc),src=pc.cu?'Eigenes Maß':SYS[pc.sys].name;
-    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+  const flexTot={};
+  for(const pc of st.pieces){const p=partOf(pc),src=p.flex?'Flexgleis zuschneiden':pc.cu?'Eigenes Maß':SYS[pc.sys].name;
+    if(p.flex)flexTot[pc.sys]=(flexTot[pc.sys]||0)+lenOf(p);
+    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(p.flex?'':pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
     const k=src+'|'+n;m.set(k,(m.get(k)||0)+1)}
   let i1=0,fd=0;for(const mk of st.marks||[]){if(mk.k==='iso1')i1+=1;if(mk.k==='iso2')i1+=2;if(mk.k==='feed')fd++}
   const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}});
+  for(const k in flexTot){const L=FLEXLEN[k]||730;rows.push({s:SYS[k]?SYS[k].name:k,n:`Flexgleis ${L} mm (für ${fmt(flexTot[k]/10)} cm Verbindungen)`,v:Math.ceil(flexTot[k]/L)})}
   if(i1)rows.push({s:'Zubehör',n:'Isolierschienenverbinder',v:i1});
   if(fd)rows.push({s:'Zubehör',n:'Einspeisung (Anschlussklemme / Kabel)',v:fd});
   return rows}
@@ -1228,6 +1245,44 @@ function build3D(){
   const R=Math.max(B.w,B.d);T3.sun.position.set(B.w*.2,R*1.2,-B.d*.4);T3.sun.target.position.set(B.w/2,0,B.d/2);
   const sc=T3.sun.shadow.camera;sc.left=-R*.8;sc.right=R*.8;sc.top=R*.8;sc.bottom=-R*.8;sc.near=10;sc.far=R*4;sc.updateProjectionMatrix();
 }
+
+/* ---------- Zwei offene Enden verbinden (Flexgleis: Bogen – Gerade – Bogen) ---------- */
+const FLEXLEN={minitrix:730,fleischmann:777,peco:914};
+function dubins(p0,t0,p1,t1,R,s1,s2){const n=t=>({x:-Math.sin(t),y:Math.cos(t)}),n0=n(t0),n1=n(t1);
+  const c1={x:p0.x+s1*R*n0.x,y:p0.y+s1*R*n0.y},c2={x:p1.x+s2*R*n1.x,y:p1.y+s2*R*n1.y};
+  const dx=c2.x-c1.x,dy=c2.y-c1.y,D=Math.hypot(dx,dy),al=Math.atan2(dy,dx);let phi;
+  if(s1===s2)phi=al;else{if(D<1e-9)return null;const v=(s1-s2)*R/D;if(Math.abs(v)>1)return null;phi=al+Math.asin(v)}
+  const np=n(phi),a={x:c1.x-s1*R*np.x,y:c1.y-s1*R*np.y},b={x:c2.x-s2*R*np.x,y:c2.y-s2*R*np.y};
+  const L=(b.x-a.x)*Math.cos(phi)+(b.y-a.y)*Math.sin(phi);if(L<-0.01)return null;
+  const md=x=>{x%=TAU;if(x<0)x+=TAU;if(x>TAU-1e-7)x=0;return x};
+  const d1=md(s1*(phi-t0)),d2=md(s2*(t1-phi));return{R,s1,s2,d1,d2,L:Math.max(0,L),turn:d1+d2,len:R*(d1+d2)+Math.max(0,L)}}
+function joinEnds(A,B){
+  const ca=G.get(A.id).conns[A.ci],cb=G.get(B.id).conns[B.ci];
+  const radii=SYS[ui.sys].parts.filter(q=>q.t==='C'&&!q.hide&&!q.fn).map(q=>q.R),Rmin=radii.length?Math.min(...radii):200;
+  let best=null;
+  for(const k of[1,1.25,1.5,2,3,4,6,10,20,50])for(const s1 of[1,-1])for(const s2 of[1,-1]){
+    const sol=dubins(ca,ca.a,cb,wrap(cb.a+PI),Rmin*k,s1,s2);if(!sol)continue;
+    const score=Math.floor(sol.turn/(15*DEG)+1e-6)*1e9-(sol.turn<45*DEG?Math.min(sol.R,4*Rmin)*1e3:0)+sol.len;if(!best||score<best.score)best=Object.assign(sol,{score})}
+  if(!best){toast('Keine Verbindung gefunden');return}
+  snap();const keep=ui.cont;ui.cont=false;st.active={type:'conn',id:A.id,ci:A.ci};
+  const segs=[];if(best.d1>1e-4)segs.push({cu:{id:'fC',t:'C',R:+best.R.toFixed(1),A:best.d1/DEG,flex:true},d:best.s1});
+  if(best.L>0.05)segs.push({cu:{id:'fS',t:'S',L:best.L,flex:true},d:1});
+  if(best.d2>1e-4)segs.push({cu:{id:'fC',t:'C',R:+best.R.toFixed(1),A:best.d2/DEG,flex:true},d:best.s2});
+  const made=[];for(const sg of segs){const pc=placeRaw(ui.sys,null,sg.cu,sg.d);made.push(pc);st.active={type:'conn',id:pc.id,ci:1}}
+  ui.cont=keep;
+  const tot=made.reduce((a,pc)=>a+lenOf(partOf(pc)),0),dz=cb.z-ca.z;let z=ca.z;
+  for(const pc of made){const l=lenOf(partOf(pc));pc.att.z=z;pc.z0=z;pc.rise=tot?+(dz*l/tot).toFixed(3):0;z+=pc.rise}
+  rebuild();
+  const closed=links.has(key(B.id,B.ci));ui.sel=null;
+  const o=openC.find(q=>onLv(q.id));st.active=o?{type:'conn',id:o.id,ci:o.ci}:null;
+  changed();
+  const gr=tot?Math.abs(dz)/tot*100:0,arcs=segs.filter(x=>x.cu.t==='C').length;
+  if(!closed){const e=G.get(made[made.length-1].id).conns[1];toast(`Fast verbunden – Abweichung ${fmt(Math.hypot(e.x-cb.x,e.y-cb.y),1)} mm`);return}
+  toast(`Verbunden: ${fmt(tot/10)} cm Flexgleis`+(arcs?` · ${arcs} Bogen${arcs>1?'':''} R${fmt(best.R,0)}`:' · gerade')+(gr>.05?` · ${fmt(gr)} % Steigung`:'')+(gr>4?' – zu steil!':''));
+  try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
+function setJoinMode(on){if(on){if(ui.mode==='start')setStartMode(false);if(ui.mode==='mark')setMarkMode(ui.markK);ui.ins=null}
+  ui.mode=on?'join':null;ui.joinA=null;$('joinBtn').setAttribute('aria-pressed',on);
+  const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Verbinden: erstes offenes Ende antippen · ✕ hier beenden';draw()}
 
 /* ---------- Ebenen (je 40 mm lichte Höhe) ---------- */
 const lvOf=z=>Math.round(z/CLEAR);
