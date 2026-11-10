@@ -94,6 +94,17 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:8px;paddi
 .legend{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
 .legend i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--down),var(--ballast),var(--up))}
 #toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:calc(100% - 120px);text-align:center;pointer-events:none}
+#swLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3}
+.editbar,.fab{z-index:6}
+.swb{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 6px;border-radius:15px;border:2px solid var(--ink);background:var(--ok);color:#fff;font-family:var(--f-display);font-weight:700;font-size:13px;line-height:1;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.swb.a{background:var(--accent);color:var(--accent-ink)}
+.swb::after{content:"";position:absolute;inset:-8px}
+#simBar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;width:max-content;max-width:calc(100% - 20px);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+#simBar .spd{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--muted)}
+#simBar input[type=range]{width:110px;accent-color:var(--accent)}
+#simBar output{min-width:52px}
+#simPlay{min-width:44px;font-size:16px}
+#trainBtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
 .modehint{cursor:pointer;max-width:calc(100% - 24px);text-align:center;position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px}
 
 /* dock */
@@ -179,6 +190,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 .chip.wide{width:auto;padding:4px 14px}
 .chip.auto{width:auto;min-width:60px;padding:4px 9px}
 @media (max-width:480px){
+  #simBar{gap:6px}
   .brand h1{display:none}
   .top{gap:6px;padding-block:6px}
   select{max-width:none;flex:1 1 auto;min-width:0}
@@ -198,6 +210,9 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 }
 /* Querformat am Telefon: Werkzeuge rechts */
 @media (orientation:landscape) and (max-height:540px){
+  #simBar .lbl{display:none}
+  #simBar input[type=range]{width:80px}
+  #simBar{flex-wrap:nowrap;gap:6px;padding:5px 6px}
   #app{grid-template-columns:minmax(0,1fr) min(300px,42%);grid-template-rows:auto minmax(0,1fr)}
   .top{grid-column:1 / -1;padding-block:4px}
   .brand h1{display:inline}
@@ -240,6 +255,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
       <button id="zinBtn" title="Vergrößern" aria-label="Vergrößern">+</button>
       <button id="zoutBtn" title="Verkleinern" aria-label="Verkleinern">−</button>
       <button id="fitBtn" title="Einpassen" aria-label="Plan einpassen">⤢</button>
+      <button id="trainBtn" title="Zug fahren lassen" aria-label="Zug fahren lassen" aria-pressed="false">🚂</button>
     </div>
     <div class="editbar" role="toolbar" aria-label="Bearbeiten">
       <button id="undoBtn" aria-label="Rückgängig"><span class="ic">↶</span><small>Zurück</small></button>
@@ -252,6 +268,14 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
       <button id="startBtn" aria-label="Startpunkt festlegen" aria-pressed="false"><span class="ic">⌖</span><small>Start</small></button>
     </div>
     <div class="legend"><span>−</span><i></i><span>+80 mm</span></div>
+    <div id="swLayer"></div>
+    <div id="simBar" hidden role="toolbar" aria-label="Zug steuern">
+      <button id="simPlay" class="btn primary" aria-label="Anhalten">⏸</button>
+      <label class="spd" for="simSpeed"><input id="simSpeed" type="range" min="20" max="300" step="10" value="120" aria-label="Tempo"><output id="simKmh">69 km/h</output></label>
+      <div class="seg" role="group" aria-label="Fahrtrichtung"><button id="simL" aria-pressed="false" aria-label="Links herum">↺<span class="lbl"> Links herum</span></button><button id="simR" aria-pressed="false" aria-label="Rechts herum"><span class="lbl">Rechts herum </span>↻</button></div>
+      <button id="simRev" class="btn" title="Richtung umkehren" aria-label="Richtung umkehren">⇄</button>
+      <button id="simClose" class="btn" aria-label="Zug ausblenden">✕</button>
+    </div>
     <div id="toast" hidden></div>
     <div id="modeHint" class="modehint" hidden>Auf die Platte tippen oder den gelben Pfeil ziehen</div>
   </main>
@@ -795,6 +819,7 @@ function draw(){
       for(const t of g.ties){ctx.moveTo(sx(t[0]),sy(t[1]));ctx.lineTo(sx(t[2]),sy(t[3]))}ctx.stroke()}
     ctx.strokeStyle=COL.rail;ctx.lineWidth=Math.max(.8,.9*s);
     for(const[l,r]of g.rails){if(s>.28){poly(l);ctx.stroke();poly(r);ctx.stroke()}else{poly(g.paths[0]);}}
+    if(SIM.on&&swCount(partOf(pc))>1){ctx.strokeStyle=COL.accent;ctx.lineWidth=Math.max(2,3*s);ctx.lineCap='round';for(const pi of activePaths(pc)){poly(g.paths[pi]);ctx.stroke()}ctx.lineCap='butt'}
     if(partOf(pc).fn&&s>.22)drawFn(pc,g,s);
     // Stoßstellen
     ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(1,1.2*s);ctx.beginPath();
@@ -832,6 +857,7 @@ function draw(){
   // offene Anschlüsse
   for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if(isA)continue;
     ctx.fillStyle=COL.panel;ctx.strokeStyle=COL.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx(o.c.x),sy(o.c.y),6,0,TAU);ctx.fill();ctx.stroke()}
+  drawTrain2D();placeSwitches();
   // aktiver Anschluss / Startpunkt
   let A=null;if(st.active&&st.active.type==='conn'&&G.get(st.active.id))A=G.get(st.active.id).conns[st.active.ci];
   else if(st.active&&st.active.type==='cursor')A={x:st.cursor.x,y:st.cursor.y,a:st.cursor.a,cur:true};
@@ -903,7 +929,9 @@ function tap(px,py){
 /* ---------- UI ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2200)}
 function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip,secs:ui.secs}}))}catch(e){}}
-function changed(doSave=true){if(doSave)save();renderCtx();updEdit();draw();if(ui.view3)queue3()}
+function changed(doSave=true){if(doSave)save();renderCtx();updEdit();
+  if(SIM.on){if(!validTrail()&&!spawnTrain())setSim(false);renderSwitches()}
+  draw();if(ui.view3)queue3()}
 function totals(){let len=0,mg=0;for(const g of G.values()){len+=g.p.t==='T'?g.p.L:g.p.t==='X'?g.p.L:g.len;mg=Math.max(mg,Math.abs(g.grade))}return{len,mg}}
 function renderCtx(){
   const el=$('ctx'),pc=ui.sel&&byId(ui.sel);
@@ -1119,9 +1147,10 @@ function openCustom(focus){
 
 /* ---------- Ansicht umschalten ---------- */
 function setView(v3){ui.view3=v3;$('v2').setAttribute('aria-pressed',!v3);$('v3').setAttribute('aria-pressed',v3);
-  cv.hidden=v3;$('c3wrap').hidden=!v3;document.querySelector('.legend').hidden=v3;setStartMode(false);
+  cv.hidden=v3;$('c3wrap').hidden=!v3;document.querySelector('.legend').hidden=v3||SIM.on;setStartMode(false);
   if(v3)load3D().then(()=>{if(!T3)init3D();size3();build3D();frame3IfNew();loop()}).catch(()=>{toast('3D konnte nicht geladen werden');setView(false)});
-  else draw()}
+  else{draw();if(SIM.on&&SIM.play)simLoop2D()}
+  placeSwitches()}
 $('v2').onclick=()=>setView(false);$('v3').onclick=()=>setView(true);
 
 /* ---------- 3D ---------- */
@@ -1142,7 +1171,8 @@ function size3(){if(!T3)return;const w=$('stage').clientWidth,h=$('stage').clien
 function frame3IfNew(){if(!framed){frame3();framed=true}}
 function frame3(){const B=st.board,c=new THREE.Vector3(B.w/2,0,B.d/2),R=Math.max(B.w,B.d);
   T3.ctl.target.copy(c);T3.cam.position.set(B.w/2,R*.75,B.d/2+R*.95);T3.ctl.update()}
-function loop(){cancelAnimationFrame(raf);const f=()=>{if(!ui.view3||!T3)return;T3.ctl.update();T3.r.render(T3.scene,T3.cam);raf=requestAnimationFrame(f)};f()}
+function loop(){cancelAnimationFrame(raf);let last=performance.now();const f=t=>{if(!ui.view3||!T3)return;const dt=Math.min(.05,((t||performance.now())-last)/1000);last=t||performance.now();
+  simStep(dt);updateTrain3D();T3.ctl.update();T3.r.render(T3.scene,T3.cam);placeSwitches();raf=requestAnimationFrame(f)};f()}
 function queue3(){clearTimeout(q3);q3=setTimeout(()=>{if(T3)build3D()},60)}
 function MB(){const pos=[],idx=[];return{pos,idx,
   strip(A,B){const base=pos.length/3;for(let i=0;i<A.length;i++)pos.push(...A[i],...B[i]);
@@ -1186,6 +1216,121 @@ function build3D(){
   const R=Math.max(B.w,B.d);T3.sun.position.set(B.w*.2,R*1.2,-B.d*.4);T3.sun.target.position.set(B.w/2,0,B.d/2);
   const sc=T3.sun.shadow.camera;sc.left=-R*.8;sc.right=R*.8;sc.top=R*.8;sc.bottom=-R*.8;sc.near=10;sc.far=R*4;sc.updateProjectionMatrix();
 }
+
+/* ---------- Fahrsimulation ---------- */
+const CARS=[{len:76,kind:'loco'},{len:70,kind:'w',col:0x8b2e1f,c2:'#8b2e1f'},{len:70,kind:'w',col:0x2f5d8a,c2:'#2f5d8a'},{len:70,kind:'w',col:0x5f6b2f,c2:'#5f6b2f'}];
+const GAP=6,TRAIN_LEN=CARS.reduce((a,c)=>a+c.len,0)+GAP*(CARS.length-1);
+const SIM={on:false,play:false,speed:120,trail:[],hu:0,wait:0,raf:0,t3:0,senseT:0};
+let swDirty=false;
+// Fahrwege je Teil: [Anschluss am Pfadanfang, Anschluss am Pfadende]
+function pathEnds(p){switch(p.t){
+  case'S':return p.fn==='buffer'?[[0,-1]]:[[0,1]];
+  case'C':return[[0,1]];
+  case'T':return p.three?[[0,1],[0,2],[0,3]]:[[0,1],[0,2]];
+  case'B':return[[0,1],[0,2]];
+  case'X':return p.dkw?[[0,1],[2,3],[0,3],[2,1]]:[[0,1],[2,3]];}}
+const swCount=p=>p.t==='T'?(p.three?3:2):p.t==='B'?2:(p.t==='X'&&p.dkw)?2:0;
+const swOfPath=(p,pi)=>p.t==='X'?(pi>=2?1:0):pi;
+const swState=id=>(st.sw&&st.sw[id])||0;
+function activePaths(pc){const p=partOf(pc),s0=swState(pc.id);return p.t==='X'&&p.dkw?(s0?[2,3]:[0,1]):[s0]}
+function cumOf(g,pi){g.cum=g.cum||[];if(!g.cum[pi]){const pts=g.paths[pi],c=[0];
+  for(let i=1;i<pts.length;i++)c.push(c[i-1]+Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y));g.cum[pi]=c}return g.cum[pi]}
+function segLen(sg){const c=cumOf(G.get(sg.id),sg.path);return c[c.length-1]}
+function segPoint(sg,u){const g=G.get(sg.id),pts=g.paths[sg.path],c=cumOf(g,sg.path),L=c[c.length-1];
+  const d=Math.max(0,Math.min(L,sg.fwd?u:L-u));let i=1;while(i<c.length-1&&c[i]<d)i++;
+  const a=pts[i-1],b=pts[i],t=(d-c[i-1])/((c[i]-c[i-1])||1);
+  return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t}}
+function nextSeg(sg){const p=partOf(byId(sg.id)),e=pathEnds(p)[sg.path],exit=sg.fwd?e[1]:e[0];
+  if(exit<0)return null;const L=links.get(key(sg.id,exit));if(!L)return null;
+  const q=byId(L.id),qp=partOf(q),cand=[];
+  pathEnds(qp).forEach((en,pi)=>{if(en[0]===L.ci)cand.push({pi,fwd:true});else if(en[1]===L.ci)cand.push({pi,fwd:false})});
+  if(!cand.length)return null;let pick;
+  if(cand.length>1)pick=cand.find(c=>swOfPath(qp,c.pi)===swState(q.id))||cand[0];
+  else{pick=cand[0];if(swCount(qp)>1){const s0=swOfPath(qp,pick.pi);if(swState(q.id)!==s0){st.sw=st.sw||{};st.sw[q.id]=s0;swDirty=true}}}
+  return{id:q.id,path:pick.pi,fwd:pick.fwd}}
+function advance(ds){let L=segLen(SIM.trail[SIM.trail.length-1]);SIM.hu+=ds;
+  while(SIM.hu>L){const n=nextSeg(SIM.trail[SIM.trail.length-1]);if(!n){SIM.hu=L;return false}SIM.hu-=L;SIM.trail.push(n);L=segLen(n)}
+  let tot=SIM.hu;for(let i=SIM.trail.length-2;i>=0;i--){if(tot>TRAIN_LEN+60){SIM.trail.splice(0,i+1);break}tot+=segLen(SIM.trail[i])}
+  return true}
+function behind(x){let j=SIM.trail.length-1,u=SIM.hu-x;while(u<0&&j>0){j--;u+=segLen(SIM.trail[j])}return segPoint(SIM.trail[j],Math.max(0,u))}
+function reverseTrain(){let j=SIM.trail.length-1,u=SIM.hu-TRAIN_LEN;while(u<0&&j>0){j--;u+=segLen(SIM.trail[j])}u=Math.max(0,u);
+  const nt=[];for(let k=SIM.trail.length-1;k>=j;k--){const o=SIM.trail[k];nt.push({id:o.id,path:o.path,fwd:!o.fwd})}
+  SIM.hu=segLen(SIM.trail[j])-u;SIM.trail=nt}
+const validTrail=()=>SIM.trail.length>0&&SIM.trail.every(sg=>G.has(sg.id)&&G.get(sg.id).paths[sg.path]);
+function spawnTrain(){const pick=(ui.sel&&byId(ui.sel))||st.pieces.find(pc=>{const q=partOf(pc);return(q.t==='S'||q.t==='C')&&q.fn!=='buffer'})||st.pieces[0];
+  if(!pick)return false;SIM.trail=[{id:pick.id,path:0,fwd:false}];SIM.hu=segLen(SIM.trail[0])/2;SIM.wait=0;
+  advance(TRAIN_LEN+10);reverseTrain();return true}
+// 1 = rechts herum (im Uhrzeigersinn), -1 = links herum
+function sense(){if(!validTrail())return 0;const a=behind(0),b=behind(40);let cx=0,cy=0,n=0;
+  for(const g of G.values()){cx+=(g.bb[0]+g.bb[2])/2;cy+=(g.bb[1]+g.bb[3])/2;n++}cx/=n;cy/=n;
+  return(a.x-b.x)*(cy-a.y)-(a.y-b.y)*(cx-a.x)>0?1:-1}
+function simStep(dt){if(!SIM.play||!validTrail())return;
+  if(SIM.wait>0){SIM.wait-=dt;if(SIM.wait<=0){reverseTrain();updSimUI()}return}
+  if(!advance(SIM.speed*dt))SIM.wait=1.2;
+  if(swDirty){swDirty=false;renderSwitches()}
+  SIM.senseT+=dt;if(SIM.senseT>.7){SIM.senseT=0;updSimUI()}}
+function carPoses(){const o=[];let f=0;for(const c of CARS){const a=behind(f+4),b=behind(f+c.len-4);
+  o.push({x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:(a.z+b.z)/2,h:Math.atan2(a.y-b.y,a.x-b.x),pitch:Math.atan2(a.z-b.z,Math.hypot(a.x-b.x,a.y-b.y)),c});f+=c.len+GAP}return o}
+function drawTrain2D(){if(!SIM.on||!validTrail())return;const s=view.s;
+  for(const q of carPoses()){const c=q.c,tx=Math.cos(q.h),ty=Math.sin(q.h),nx=-ty,ny=tx,hl=c.len/2-1,hw=8;
+    const pts=[[hl,hw],[hl,-hw],[-hl,-hw],[-hl,hw]].map(([u,v])=>[sx(q.x+tx*u+nx*v),sy(q.y+ty*u+ny*v)]);
+    ctx.fillStyle=c.kind==='loco'?'#1d4a32':c.c2;ctx.strokeStyle='#111';ctx.lineWidth=Math.max(1,1.2*s);
+    ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();ctx.stroke();
+    if(c.kind==='loco'){ctx.fillStyle='#f2b705';ctx.beginPath();ctx.arc(sx(q.x+tx*(hl-5)),sy(q.y+ty*(hl-5)),Math.max(2,3*s),0,TAU);ctx.fill()}}}
+// Weichenschalter
+const swBtns=new Map();
+function swAnchor(pc){const pts=G.get(pc.id).paths[0];return pts[Math.min(pts.length-1,Math.floor(pts.length*.35))]}
+function swLabel(pc){const p=partOf(pc),s0=swState(pc.id);
+  if(p.t==='X')return s0?'K':'G';if(p.t==='B')return s0?'In':'Au';if(p.three)return['G','A1','A2'][s0];return s0?'A':'G'}
+function swText(pc){const l=swLabel(pc);return{G:'gerade',A:'Abzweig',A1:'Abzweig 1',A2:'Abzweig 2',K:'kreuzend',Au:'außen',In:'innen'}[l]}
+function renderSwitches(){const layer=$('swLayer'),want=new Set();
+  if(SIM.on)for(const pc of st.pieces){const p=partOf(pc);if(swCount(p)<2)continue;want.add(pc.id);
+    let b=swBtns.get(pc.id);if(!b){b=document.createElement('button');b.className='swb';b.dataset.id=pc.id;layer.appendChild(b);swBtns.set(pc.id,b)}
+    const l=swLabel(pc);b.textContent=l;b.classList.toggle('a',l!=='G'&&l!=='Au');b.setAttribute('aria-label',`${pname(p)}: ${swText(pc)} – tippen zum Umstellen`)}
+  for(const[id,b]of swBtns)if(!want.has(id)){b.remove();swBtns.delete(id)}
+  placeSwitches()}
+function placeSwitches(){if(!SIM.on)return;
+  for(const[id,b]of swBtns){const pc=byId(id);if(!pc)continue;const a=swAnchor(pc);let X,Y,vis=true;
+    if(ui.view3&&T3){const v=new THREE.Vector3(a.x,a.z+16,a.y).project(T3.cam);vis=v.z<1&&Math.abs(v.x)<1.05&&Math.abs(v.y)<1.05;X=(v.x+1)/2*W;Y=(1-v.y)/2*H}
+    else{X=sx(a.x);Y=sy(a.y);vis=X>-20&&X<W+20&&Y>-20&&Y<H+20}
+    b.style.left=X+'px';b.style.top=Y+'px';b.hidden=!vis}}
+$('swLayer').addEventListener('click',e=>{const b=e.target.closest('.swb');if(!b)return;const pc=byId(+b.dataset.id);if(!pc)return;
+  st.sw=st.sw||{};st.sw[pc.id]=(swState(pc.id)+1)%swCount(partOf(pc));renderSwitches();if(!ui.view3)draw();save();
+  try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}});
+// Steuerung
+function updSimUI(){$('simPlay').textContent=SIM.play?'⏸':'▶';$('simPlay').setAttribute('aria-label',SIM.play?'Anhalten':'Losfahren');
+  const se=sense();$('simL').setAttribute('aria-pressed',se===-1);$('simR').setAttribute('aria-pressed',se===1);
+  $('simKmh').textContent=Math.round(SIM.speed*.576)+' km/h'}
+function simLoop2D(){cancelAnimationFrame(SIM.raf);let last=performance.now();
+  const f=t=>{if(!SIM.on||!SIM.play||ui.view3)return;const dt=Math.min(.05,(t-last)/1000);last=t;simStep(dt);draw();SIM.raf=requestAnimationFrame(f)};
+  SIM.raf=requestAnimationFrame(f)}
+function setSim(on){
+  if(on&&!validTrail()&&!spawnTrain()){toast('Erst Gleise legen');on=false}
+  SIM.on=on;SIM.play=on;$('simBar').hidden=!on;$('trainBtn').setAttribute('aria-pressed',on);
+  document.querySelector('.legend').hidden=on||ui.view3;
+  if(on)updSimUI();renderSwitches();
+  if(!ui.view3){draw();if(SIM.play)simLoop2D()}
+  if(on)toast('Weichen mit den runden Knöpfen umstellen')}
+const redrawIfIdle=()=>{if(!SIM.play&&!ui.view3)draw()};
+$('trainBtn').onclick=()=>setSim(!SIM.on);$('simClose').onclick=()=>setSim(false);
+$('simPlay').onclick=()=>{SIM.play=!SIM.play;updSimUI();if(SIM.play&&!ui.view3)simLoop2D()};
+$('simSpeed').oninput=e=>{SIM.speed=+e.target.value;updSimUI()};
+$('simRev').onclick=()=>{if(!validTrail())return;reverseTrain();SIM.wait=0;updSimUI();redrawIfIdle()};
+$('simL').onclick=()=>{if(sense()===1){reverseTrain();SIM.wait=0}updSimUI();redrawIfIdle()};
+$('simR').onclick=()=>{if(sense()===-1){reverseTrain();SIM.wait=0}updSimUI();redrawIfIdle()};
+function makeTrain3D(){const grp=new THREE.Group();T3.scene.add(grp);T3.train=grp;const M=c=>new THREE.MeshLambertMaterial({color:c});
+  const box=(g,w,h,d,x,y,c)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,0);m.castShadow=true;g.add(m);return m};
+  for(const c of CARS){const g=new THREE.Group();grp.add(g);
+    box(g,c.len-6,3,13,0,3,0x222222);
+    for(const x of[-c.len*.3,c.len*.3]){const w=new THREE.Mesh(new THREE.CylinderGeometry(3,3,14,10),M(0x111111));w.rotation.x=PI/2;w.position.set(x,2.2,0);g.add(w)}
+    if(c.kind==='loco'){const b=new THREE.Mesh(new THREE.CylinderGeometry(6.5,6.5,c.len*.55,16),M(0x1d4a32));b.rotation.z=PI/2;b.position.set(c.len*.12,11,0);b.castShadow=true;g.add(b);
+      box(g,c.len*.3,17,15,-c.len*.3,13.5,0x1d4a32);box(g,c.len*.36,1.6,17,-c.len*.3,22.6,0x111111);
+      const ch=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.6,8,10),M(0x111111));ch.position.set(c.len*.33,19,0);g.add(ch);
+      box(g,2,4,15,c.len/2-3,4.5,0xb3261e);box(g,2,4,15,-c.len/2+3,4.5,0xb3261e);
+      const lamp=new THREE.Mesh(new THREE.SphereGeometry(1.8,8,6),new THREE.MeshBasicMaterial({color:0xfff3b0}));lamp.position.set(c.len/2-1,10,0);g.add(lamp)}
+    else{box(g,c.len-8,15,16,0,12.5,c.col);box(g,c.len-6,2,17,0,21,0x55595c)}}}
+function updateTrain3D(){if(!T3)return;if(!T3.train)makeTrain3D();const grp=T3.train;grp.visible=SIM.on&&validTrail();if(!grp.visible)return;
+  carPoses().forEach((q,i)=>{const g=grp.children[i];g.position.set(q.x,q.z+4.6,q.y);g.rotation.set(0,-q.h,q.pitch,'YZX')})}
 
 /* ---------- Beispiel ---------- */
 function loadSample(){
