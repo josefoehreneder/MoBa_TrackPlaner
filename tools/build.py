@@ -47,12 +47,27 @@ img{{max-width:100%}}
 /* App-Ergänzungen */
 .install-row{{display:flex;gap:8px;flex-wrap:wrap;align-items:center}}
 .ios-hint{{background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;color:var(--ink);line-height:1.45;font-size:13.5px}}
+#instBar{{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:calc(10px + env(safe-area-inset-top,0px));z-index:40;display:flex;gap:10px;align-items:center;background:var(--ink);color:var(--bg);padding:10px 10px 10px 12px;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:560px;margin:0 auto}}
+#instBar img{{width:40px;height:40px;border-radius:9px;flex:none}}
+#instBar .t{{flex:1;min-width:0;line-height:1.3}}
+#instBar .t>b{{display:block;font-size:14.5px}}
+#instBar .t span{{font-size:12.5px;opacity:.8}}
+#instBar button{{border:0;border-radius:10px;font-weight:600;min-height:38px;padding:0 14px;flex:none}}
+#instGo{{background:var(--accent);color:var(--accent-ink)}}
+#instX{{background:transparent;color:var(--bg);font-size:18px;padding:0 8px!important}}
+#instBtnTop{{display:none}}
+#instBtnTop.show{{display:inline-flex;align-items:center}}
 #updBar{{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:10px;align-items:center;background:var(--ink);color:var(--bg);padding:8px 8px 8px 14px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:13.5px;max-width:calc(100% - 32px)}}
 #updBar button{{border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:600;padding:6px 12px;min-height:34px}}
 </style>
 '''
 
 PWA_JS = r'''
+<div id="instBar" hidden role="dialog" aria-label="App installieren">
+  <img src="icons/icon-192.png" alt="">
+  <div class="t"><b>Gleisplaner als App</b><span id="instTxt">Auf den Startbildschirm legen – läuft dann im Vollbild und offline.</span></div>
+  <button id="instGo">Installieren</button><button id="instX" aria-label="Später">✕</button>
+</div>
 <div id="updBar" hidden><span>Neue Version verfügbar</span><button id="updBtn">Neu laden</button></div>
 <input id="planFile" type="file" accept=".json,.gleisplan,application/json" hidden>
 <script>
@@ -61,8 +76,26 @@ PWA_JS = r'''
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 let deferred=null;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;});
-window.addEventListener('appinstalled',()=>{deferred=null;window.__plan&&__plan.toast('App installiert');});
+const bar=document.getElementById('instBar'),go=document.getElementById('instGo'),txt=document.getElementById('instTxt');
+const snoozed=()=>{try{return Date.now()<+(localStorage.getItem('gp.instSnooze')||0)}catch(e){return false}};
+function showBar(){if(isStandalone()||snoozed())return;
+  if(deferred){go.hidden=false;go.textContent='Installieren';txt.textContent='Auf den Startbildschirm legen – läuft dann im Vollbild und offline.'}
+  else if(isIOS){go.hidden=true;txt.innerHTML='In Safari unten auf <b>Teilen</b> tippen, dann <b>Zum Home-Bildschirm</b>.'}
+  else{go.hidden=true;txt.innerHTML='Im Browser-Menü <b>⋮</b> auf <b>App installieren</b> tippen.'}
+  bar.hidden=false}
+function doInstall(){if(!deferred){showBar();return}const d=deferred;deferred=null;bar.hidden=true;
+  d.prompt();d.userChoice.then(c=>{if(c.outcome!=='accepted')upd()}).finally(upd)}
+function upd(){const b=document.getElementById('instBtnTop');if(b)b.classList.toggle('show',!isStandalone()&&!!deferred)}
+go.onclick=doInstall;
+document.getElementById('instX').onclick=()=>{bar.hidden=true;try{localStorage.setItem('gp.instSnooze',String(Date.now()+3*24*3600e3))}catch(e){}};
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;upd();showBar()});
+window.addEventListener('appinstalled',()=>{deferred=null;bar.hidden=true;upd();window.__plan&&__plan.toast('App installiert')});
+// Ohne Installationsangebot des Browsers (iPhone, Firefox …) nach kurzer Zeit Anleitung zeigen
+setTimeout(()=>{if(!deferred&&!isStandalone())showBar()},2500);
+// Knopf in der Kopfzeile
+(()=>{const h=document.querySelector('.top'),m=document.getElementById('menuBtn');if(!h||!m)return;
+  const b=document.createElement('button');b.id='instBtnTop';b.className='btn primary';b.textContent='⤓ App';b.title='App installieren';
+  b.onclick=doInstall;h.insertBefore(b,m)})();
 
 // Service Worker
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
@@ -109,7 +142,7 @@ window.__pwaSheet=()=>{
     <h3>Datei</h3><div class="install-row"><button class="btn primary" id="fSave">Als Datei speichern</button><button class="btn" id="fOpen">Datei öffnen</button></div>
     <p>Speichert den Plan als .json-Datei, z. B. zum Sichern oder zum Weitergeben per WhatsApp oder Mail.</p>`;
   const ib=document.getElementById('instBtn');
-  if(ib)ib.onclick=()=>{const d=deferred;deferred=null;d.prompt();d.userChoice.finally(()=>{window.__pwaSheet()})};
+  if(ib)ib.onclick=()=>{document.getElementById('sheet').hidden=true;doInstall()};
   document.getElementById('fSave').onclick=saveFile;
   document.getElementById('fOpen').onclick=()=>fi.click();
 };
@@ -142,6 +175,7 @@ manifest = {
 }
 (HERE / 'manifest.webmanifest').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
 
+VERSION = hashlib.sha1((src + HEAD + PWA_JS).encode()).hexdigest()[:8]
 SW = f'''/* Service Worker – Spur-N Gleisplaner */
 const VERSION='gp-{VERSION}';
 const SHELL=['./','index.html','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','icons/favicon-64.png'];
