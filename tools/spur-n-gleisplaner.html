@@ -252,24 +252,46 @@ const Wt=(id,L,R,A,name)=>({id,t:'T',L,R,A,name});
 const X=(L,A)=>({id:`X${L}-${A}`,t:'X',L,A});
 // Bogenweiche: innen R1, außen R2 (mit optionalem geraden Vorlauf L0), beide Stränge enden im Winkel A
 const Bw=(id,R1,R2,A,L0=0)=>({id,t:'B',R1,R2,A,L0,name:'Bogenweiche'});
+// Dreiwegweiche: gerader Strang + Abzweig links und rechts
+const W3=(id,L,R,A,o={})=>({id,t:'T',L,R,A,three:true,name:'Dreiwegweiche',...o});
+// Doppelkreuzungsweiche: Geometrie wie Kreuzung, zusätzlich Bogenverbindungen
+const DKW=(L,A,o={})=>({id:`DKW${L}-${A}`,t:'X',L,A,dkw:true,...o});
+const ax=o=>Object.assign(o,{approx:true});
 const SYS={
-  kato:{name:'Kato Unitrack',parts:[S(248),S(186),S(124),S(64),S(62),
+  minitrix:{name:'Minitrix',parts:[
+    S(312.6),S(104.2),S(76.3),S(54.2),S(50),S(33.6),S(27.9),S(17.5),
+    C(194.6,30),C(194.6,24),C(194.6,6),C(228.2,30),C(228.2,24),C(228.2,6),
+    C(261.8,30),C(261.8,15),C(261.8,7.5),C(295.4,30),C(295.4,15),C(295.4,7.5),
+    C(329,15),C(362.6,15),C(492.6,15),C(526.2,15),
+    Wt('W24',104.2,194.6,24,'Weiche 24°'),Wt('W15',112.6,362.6,15,'Weiche 15°'),
+    ax(W3('W3-15',112.6,362.6,15)),ax(Bw('BW30',194.6,228.2,30)),
+    X(104.2,30),X(129.8,15),DKW(129.8,15)]},
+  fleischmann:{name:'Fleischmann piccolo',parts:[
+    S(222),S(111),S(57.5),S(55.5),S(27.75),
+    C(192,45),C(192,15),C(192,7.5),C(225.6,45),C(225.6,15),C(225.6,7.5),
+    C(396.4,30),C(396.4,15),C(430,30),C(430,15),
+    Wt('W15',111,430,15,'Weiche 15°'),W3('W3-15',111,430,15),Bw('BW45',192,225.6,45),
+    X(115,30),X(111,15),DKW(111,15)]},
+  peco:{name:'Peco Setrack',parts:[
+    S(174),S(87),S(58),
+    C(228,45),C(228,22.5),C(228,11.25),C(263.5,45),C(263.5,22.5),
+    C(298.5,45),C(298.5,22.5),C(333.4,45),C(333.4,22.5),
+    Wt('W22',87,228,22.5,'Weiche'),ax(Bw('BW30',263.5,298.5,30)),ax(X(87,22.5))]},
+  // nicht mehr angeboten – nur damit ältere Pläne weiter funktionieren
+  kato:{name:'Kato Unitrack',hide:true,parts:[S(248),S(186),S(124),S(64),S(62),
     C(216,45),C(249,45),C(282,45),C(315,45),C(315,15),C(348,30),C(381,15),C(718,15),
     Wt('W4',124,481,15,'Weiche Nr. 4'),Wt('W6',186,718,15,'Weiche Nr. 6'),Bw('BW15',481,718,15),Bw('BW45',282,315,45),X(124,15),X(124,90)]},
-  minitrix:{name:'Minitrix',parts:[S(312.6),S(104.2),S(54.2),S(50),
-    C(194.6,30),C(194.6,15),C(228.2,30),C(228.2,15),C(261.8,30),C(295.4,30),C(329,30),
-    Wt('W15',112.6,194.6,15,'Weiche'),Bw('BW30',194.6,228.2,30),X(104.2,30)]},
-  fleischmann:{name:'Fleischmann piccolo',parts:[S(222),S(111),S(104.2),S(57.5),
-    C(192,45),C(192,30),C(192,15),C(225.6,45),C(225.6,15),C(430,15),
-    Wt('W15',111,430,15,'Weiche'),Bw('BW30',192,225.6,30),X(111,15)]},
-  peco:{name:'Peco Setrack',parts:[S(174),S(87),
-    C(228,45),C(228,22.5),C(263.5,45),C(263.5,22.5),C(298.5,22.5),C(333.5,22.5),
-    Wt('W22',125,228,22.5,'Weiche'),Bw('BW22',228,263.5,22.5),X(125,22.5)]},
 };
+// frühere Teile, die es so nicht mehr gibt (ausgeblendet, für alte Pläne)
+const LEGACY={
+  minitrix:[S(54.2),C(194.6,15),C(228.2,15),C(329,30),X(104.2,30)],
+  fleischmann:[S(104.2),C(192,30),C(430,15),Bw('BW30',192,225.6,30),X(111,15)],
+  peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)]};
+for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q.id))SYS[k].parts.push(Object.assign(q,{hide:true}));
 
 /* ---------- State ---------- */
 let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
-let ui={sys:'kato',dir:1,cont:true,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
+let ui={sys:'minitrix',dir:1,cont:true,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
 let G=new Map(), links=new Map(), openC=[], conflicts=[], jumps=[], bridges=0;
 const undoStack=[];
 const view={s:.5,ox:0,oy:0};
@@ -287,14 +309,14 @@ const isTurnout=p=>p.t==='T'||p.t==='B';
 function pname(p){switch(p.t){
   case'S':return p.fill?`Ausgleichsstück ${fmt(p.L)} mm`:`Gerade ${fmt(p.L)} mm`;
   case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen R${fmt(p.R)} · ${fmt(p.A)}°`;
-  case'T':return `${p.name||'Weiche'} ${fmt(p.A)}°`;
-  case'X':return `Kreuzung ${fmt(p.A)}°`;
+  case'T':{const n=p.three?'Dreiwegweiche':(p.name||'Weiche');return `${n.includes('°')?n:n+' '+fmt(p.A)+'°'} · R${fmt(p.R,0)}`}
+  case'X':return p.dkw?`Doppelkreuzungsweiche ${fmt(p.A)}°`:`Kreuzung ${fmt(p.A)}° · ${fmt(p.L)} mm`;
   case'B':return `Bogenweiche R${fmt(p.R1,0)}/R${fmt(p.R2,0)} · ${fmt(p.A)}°`;}}
 function chipText(p){switch(p.t){
   case'S':return [fmt(p.L),'Gerade'];
   case'C':return ['R'+fmt(p.R,0),fmt(p.A)+'°'];
-  case'T':return [p.name&&p.name.includes('Nr')?p.name.replace('Weiche ',''):'Weiche',fmt(p.A)+'° R'+fmt(p.R,0)];
-  case'X':return ['Kreuzung',fmt(p.A)+'°'];
+  case'T':return [p.three?'Dreiweg':p.name&&p.name.includes('Nr')?p.name.replace('Weiche ',''):'Weiche',fmt(p.A)+'° R'+fmt(p.R,0)];
+  case'X':return [p.dkw?'DKW':'Kreuz.',fmt(p.A)+'° '+fmt(p.L,0)];
   case'B':return ['Bogenw.',fmt(p.R1,0)+'/'+fmt(p.R2,0)];}}
 function linePts(x0,y0,x1,y1,t0=0,t1=1){
   const L=Math.hypot(x1-x0,y1-y0),n=Math.max(2,Math.ceil(L/STEP)+1),o=[];
@@ -308,11 +330,14 @@ function localPaths(p,d){
   switch(p.t){
     case'S':return[linePts(0,0,p.L,0)];
     case'C':return[arcPts(p.R,p.A,d)];
-    case'T':{const b=branch(p,d);let br=arcPts(p.R,p.A,d).map(q=>[q[0],q[1],0]);
-      if(b.ext>.5)br=br.concat(linePts(b.ax,b.ay,b.ex,b.ey,0,0).slice(1));
-      return[linePts(0,0,p.L,0,0,0),br]}
-    case'X':{const h=p.L/2,b=p.A*DEG;return[linePts(0,0,p.L,0,0,0),
-      linePts(h-h*Math.cos(b),-d*h*Math.sin(b),h+h*Math.cos(b),d*h*Math.sin(b),0,0)]}
+    case'T':{const mk=dd=>{const b=branch(p,dd);let br=arcPts(p.R,p.A,dd).map(q=>[q[0],q[1],0]);
+      if(b.ext>.5)br=br.concat(linePts(b.ax,b.ay,b.ex,b.ey,0,0).slice(1));return br};
+      const out=[linePts(0,0,p.L,0,0,0),mk(d)];if(p.three)out.push(mk(-d));return out}
+    case'X':{const h=p.L/2,b=p.A*DEG,c=Math.cos(b),sn=Math.sin(b);const out=[linePts(0,0,p.L,0,0,0),
+      linePts(h-h*c,-d*h*sn,h+h*c,d*h*sn,0,0)];
+      if(p.dkw){const qb=(P0,P1,P2)=>{const o=[];for(let i=0;i<=12;i++){const t=i/12,u=1-t;o.push([u*u*P0[0]+2*u*t*P1[0]+t*t*P2[0],u*u*P0[1]+2*u*t*P1[1]+t*t*P2[1],0])}return o};
+        out.push(qb([0,0],[h*.55,0],[h+h*c*.999,d*h*sn]),qb([h-h*c,-d*h*sn],[h*1.45,0],[p.L,0]))}
+      return out}
     case'B':{const L0=p.L0||0;let out=arcPts(p.R2,p.A,d).map(q=>[q[0]+L0,q[1],0]);
       if(L0>.5)out=linePts(0,0,L0,0,0,0).concat(out.slice(1));
       return[out,arcPts(p.R1,p.A,d).map(q=>[q[0],q[1],0])]}
@@ -321,7 +346,8 @@ function localConns(p,d){
   switch(p.t){
     case'S':return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:1}];
     case'C':{const a=p.A*DEG;return[{x:0,y:0,a:PI,f:0},{x:p.R*Math.sin(a),y:d*p.R*(1-Math.cos(a)),a:d*a,f:1}]}
-    case'T':{const b=branch(p,d);return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},{x:b.ex,y:b.ey,a:d*b.a,f:0}]}
+    case'T':{const b=branch(p,d),o=[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},{x:b.ex,y:b.ey,a:d*b.a,f:0}];
+      if(p.three)o.push({x:b.ex,y:-b.ey,a:-d*b.a,f:0});return o}
     case'X':{const h=p.L/2,b=p.A*DEG;return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},
       {x:h-h*Math.cos(b),y:-d*h*Math.sin(b),a:wrap(d*b+PI),f:0},{x:h+h*Math.cos(b),y:d*h*Math.sin(b),a:d*b,f:0}]}
     case'B':{const a=p.A*DEG,L0=p.L0||0;return[{x:0,y:0,a:PI,f:0},
@@ -415,7 +441,7 @@ function target(){
   if(st.active&&st.active.type==='conn'){const g=G.get(st.active.id);if(g){const c=g.conns[st.active.ci];
     const pc=byId(st.active.id),p=partOf(pc);let s=0;if(!flat(p)){s=pc.rise/lenOf(p);if(c.f===0)s=-s}
     return{x:c.x,y:c.y,a:c.a,z:c.z,s}}}
-  const c=st.cursor;return{x:c.x,y:c.y,a:wrap(c.a+PI),z:c.z,s:0};
+  const c=st.cursor;return{x:c.x,y:c.y,a:c.a,z:c.z,s:0};
 }
 function setTransform(pc){
   const p=partOf(pc),T=pc.att,c=localConns(p,pc.d)[pc.k];
@@ -589,15 +615,15 @@ function startInsert(pc,ci){
 function openTurnoutPicker(pc){
   const sysK=pc.cu?ui.sys:pc.sys,cp=partOf(pc);
   if(cp.t==='C'){openCurvePicker(pc,sysK,cp);return}
-  const list=SYS[sysK].parts.filter(q=>q.t==='T'||q.t==='X');
+  const list=SYS[sysK].parts.filter(q=>(q.t==='T'||q.t==='X')&&!q.hide);
   openSheet('Weiche einsetzen',`<p>Die Weiche ersetzt dieses Gleis (und bei Bedarf das nächste gerade Gleis). Reicht die Länge nicht genau, ergänzt der Plan passende Geraden oder ein Ausgleichsstück zum Zuschneiden.</p>
    <table><tbody>${list.map(q=>`<tr><td><b>${pname(q)}</b><br><span style="color:var(--muted);font-size:12px">${fmt(q.L)} mm${q.R?' · R'+fmt(q.R,0):''}</span></td>
-   <td style="text-align:right;white-space:nowrap">${q.t==='T'?`<button class="btn" data-w="${q.id}" data-d="1">◀ links</button> <button class="btn" data-w="${q.id}" data-d="-1">rechts ▶</button>`:`<button class="btn" data-w="${q.id}" data-d="1">einsetzen</button>`}</td></tr>`).join('')}</tbody></table>
+   <td style="text-align:right;white-space:nowrap">${q.t==='T'&&!q.three?`<button class="btn" data-w="${q.id}" data-d="1">◀ links</button> <button class="btn" data-w="${q.id}" data-d="-1">rechts ▶</button>`:`<button class="btn" data-w="${q.id}" data-d="1">einsetzen</button>`}</td></tr>`).join('')}</tbody></table>
    <p>Danach kannst du mit „Anschluss“ die Weiche umdrehen und mit „Spiegeln“ die Abzweigseite wechseln.</p>`,()=>{
     document.querySelectorAll('#sheetBody [data-w]').forEach(b=>b.onclick=()=>{$('sheet').hidden=true;startInsert(pc);insertPart(sysK,b.dataset.w,null,+b.dataset.d)})});
 }
 function openCurvePicker(pc,sysK,cp){
-  const list=SYS[sysK].parts.filter(q=>q.t==='B');
+  const list=SYS[sysK].parts.filter(q=>q.t==='B'&&!q.hide);
   const fits=q=>Math.abs(q.R2-cp.R)<1&&(q.L0||0)<.5?'Hauptgleis außen':Math.abs(q.R1-cp.R)<1?'Hauptgleis innen':'';
   openSheet('Bogenweiche einsetzen',`<p>Die Bogenweiche ersetzt diesen Bogen R${fmt(cp.R)}. Passt ein Radius der Weiche, bleibt der Plan geschlossen und der restliche Winkel wird mit Bögen aufgefüllt. Sonst wird der folgende Strang verschoben.</p>
    ${list.length?`<table><tbody>${list.map(q=>{const f=fits(q);return`<tr><td><b>${pname(q)}</b><br><span style="font-size:12px;color:${f?'var(--ok)':'var(--muted)'}">${f?'passt · '+f:'Radius passt nicht · Strang wird verschoben'}</span></td>
@@ -804,7 +830,7 @@ function iconSVG(p,d){
 }
 const TABS=[['S','Gerade'],['C','Bögen'],['T','Weichen'],['X','Kreuz.'],['U','Eigen']];
 function renderPalette(){
-  const parts=SYS[ui.sys].parts,avail=TABS.filter(([t])=>t==='U'||parts.some(p=>p.t===t||(t==='T'&&p.t==='B')));
+  const parts=SYS[ui.sys].parts,avail=TABS.filter(([t])=>t==='U'||parts.some(p=>!p.hide&&(p.t===t||(t==='T'&&p.t==='B'))));
   if(!avail.some(([t])=>t===ui.tab))ui.tab='S';
   $('tabs').innerHTML=avail.map(([t,n])=>`<button data-t="${t}" aria-pressed="${t===ui.tab}">${n}</button>`).join('');
   let h='';
@@ -813,7 +839,7 @@ function renderPalette(){
        <button class="chip wide" data-u="C">${iconSVG({t:'C',R:300,A:30},ui.dir)}<b>Bogen</b><small>Radius frei</small></button>
        <button class="chip wide" data-u="T">${iconSVG({t:'T',L:111,R:430,A:15},ui.dir)}<b>Weiche</b><small>Maße frei</small></button>
        <button class="chip wide" data-u="B">${iconSVG({t:'B',R1:200,R2:240,A:30,L0:0},ui.dir)}<b>Bogenweiche</b><small>Maße frei</small></button>`;
-  }else for(const p of parts.filter(p=>p.t===ui.tab||(ui.tab==='T'&&p.t==='B'))){const[a,b]=chipText(p);h+=`<button class="chip" data-id="${p.id}" aria-label="${pname(p)}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${b}</small></button>`}
+  }else for(const p of parts.filter(p=>!p.hide&&(p.t===ui.tab||(ui.tab==='T'&&p.t==='B')))){const[a,b]=chipText(p);h+=`<button class="chip" data-id="${p.id}" aria-label="${pname(p)}${p.approx?' (Maße angenähert)':''}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${p.approx?'≈ ':''}${b}</small></button>`}
   $('palette').innerHTML=h;$('palette').scrollLeft=0;
 }
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ui.tab=b.dataset.t;renderPalette();save()});
@@ -856,7 +882,7 @@ document.addEventListener('keydown',e=>{if(e.target.closest('input,textarea,sele
   else if(m&&e.key.toLowerCase()==='v'){paste()}
   else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();delCurrent()}});
 $('fitBtn').onclick=()=>{if(ui.view3&&T3)frame3();else{fit();saveView()}};
-const sel=$('sys');sel.innerHTML=Object.entries(SYS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
+const sel=$('sys');sel.innerHTML=Object.entries(SYS).filter(([k,v])=>!v.hide).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
 sel.onchange=()=>{ui.sys=sel.value;renderPalette();save()};
 
 /* ---------- Sheet ---------- */
@@ -865,7 +891,7 @@ $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
 function bom(){const m=new Map();
   for(const pc of st.pieces){const p=partOf(pc),src=pc.cu?'Eigenes Maß':SYS[pc.sys].name;
-    const n=pname(p)+(isTurnout(p)?(pc.d===1?' links':' rechts'):'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.approx?' (Maße angenähert)':'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
     const k=src+'|'+n;m.set(k,(m.get(k)||0)+1)}
   return[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}})}
 $('menuBtn').onclick=()=>{
@@ -885,9 +911,9 @@ $('menuBtn').onclick=()=>{
   <div class="rules">
    <div class="rule"><b>${CLEAR} mm</b><span>Höhenabstand Schienenoberkante zu Schienenoberkante bei Überführungen (mit dünner Brücke). Darunter meldet der Plan eine Kollision.</span></div>
    <div class="rule"><b>≤ 3 %</b><span>Steigung, die die meisten Züge sicher schaffen. Ab 3 % wird die Anzeige orange, ab 4 % rot.</span></div>
-   <div class="rule"><b>≈ 33 mm</b><span>Gleisabstand bei Parallelgleisen (Kato 33, Minitrix/Fleischmann 33,6).</span></div>
+   <div class="rule"><b>33,6 mm</b><span>Gleisabstand bei Parallelgleisen (Minitrix und Fleischmann 33,6 mm, Peco 35 mm).</span></div>
   </div>
-  <p>Gleismaße sind Katalogwerte, gerundet. Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
+  <p>Gleismaße sind Katalogwerte, gerundet. Teile mit „≈“ haben angenäherte Maße (Minitrix-Dreiwegweiche und -Bogenweiche, Peco-Bogenweiche und -Kreuzung). Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
   <div id="pwaSlot"></div>
   <h3>Speichern & Teilen</h3>
   <p>Der Plan wird automatisch in diesem Browser gespeichert. Zum Sichern oder Weitergeben den Plan als Text kopieren.</p>
@@ -918,13 +944,13 @@ function openCustom(focus){
     B:['Eigene Bogenweiche',`<p>Bogenweiche nach ${side}. Innen der kleinere Radius, außen der größere; beide Stränge enden im selben Winkel. Ein gerader Vorlauf vor dem Außenbogen ist optional.</p><div class="fields">${fld('b1','Radius innen (mm)',c.bR1||192)}${fld('b2','Radius außen (mm)',c.bR2||225.6)}${fld('ba','Winkel (°)',c.bA||30)}${fld('b0','Vorlauf außen (mm)',c.bL0||0)}</div><div class="acts"><button class="btn primary" id="go">Bogenweiche legen</button></div>`]}[focus||'S'];
   openSheet(body[0],body[1],()=>{
     const v=id=>parseFloat($(id).value);
-    const go=cu=>{if(Object.values(cu).some(x=>typeof x==='number'&&!(x>0))){toast('Bitte positive Werte eingeben');return}$('sheet').hidden=true;usePart('kato',null,cu)};
+    const go=cu=>{if(Object.values(cu).some(x=>typeof x==='number'&&!(x>0))){toast('Bitte positive Werte eingeben');return}$('sheet').hidden=true;usePart(ui.sys,null,cu)};
     $('go').onclick=()=>{
       if(focus==='C'){c.R=v('cr');c.A=Math.min(180,v('ca'));go({id:'cC',t:'C',R:c.R,A:c.A})}
       else if(focus==='B'){c.bR1=v('b1');c.bR2=v('b2');c.bA=Math.min(90,v('ba'));c.bL0=Math.max(0,v('b0')||0);
         if(!(c.bR2>c.bR1)){toast('Außenradius muss größer als Innenradius sein');return}
         if(!(c.bR1>0&&c.bA>0)){toast('Bitte positive Werte eingeben');return}
-        $('sheet').hidden=true;usePart('kato',null,{id:'cB',t:'B',R1:c.bR1,R2:c.bR2,A:c.bA,L0:c.bL0,name:'Bogenweiche'})}
+        $('sheet').hidden=true;usePart(ui.sys,null,{id:'cB',t:'B',R1:c.bR1,R2:c.bR2,A:c.bA,L0:c.bL0,name:'Bogenweiche'})}
       else if(focus==='T'){c.wL=v('wl');c.wR=v('wr');c.wA=Math.min(45,v('wa'));go({id:'cT',t:'T',L:c.wL,R:c.wR,A:c.wA,name:'Weiche'})}
       else{c.L=v('cl');go({id:'cS',t:'S',L:c.L})}
       save()};
@@ -1004,11 +1030,12 @@ function build3D(){
 /* ---------- Beispiel ---------- */
 function loadSample(){
   st={board:{w:1500,d:700},pieces:[],cursor:{x:502,y:636,a:0,z:0},active:{type:'cursor'},nid:1};
-  const keep=ui.cont;ui.cont=false;const add=(pid,d=1)=>placeRaw('kato',pid,null,d);
-  const w=add('W4',1);add('S124');add('S248');for(let i=0;i<4;i++)add('C282-45',1);
-  add('S248');add('S248');for(let i=0;i<4;i++)add('C282-45',1);
-  st.active={type:'conn',id:w.id,ci:2};add('C315-15',-1);
-  const a=add('S124'),b=add('S124');a.rise=b.rise=3.72;propagate(a);
+  const keep=ui.cont;ui.cont=false;const add=(pid,d=1)=>placeRaw('minitrix',pid,null,d);
+  // Minitrix-Oval R1 mit Ausweiche und ansteigendem Abstellgleis
+  const w=add('W15',1);add('S104.2');add('S312.6');for(let i=0;i<6;i++)add('C194.6-30',1);
+  add('S312.6');add('S104.2');add('W15',-1);for(let i=0;i<6;i++)add('C194.6-30',1);
+  st.active={type:'conn',id:w.id,ci:2};add('C362.6-15',-1);
+  const a=add('S104.2'),b=add('S104.2');a.rise=b.rise=3.13;propagate(a);
   st.active={type:'conn',id:b.id,ci:1};ui.cont=keep;ui.sel=null;rebuild();
   // auf der Platte zentrieren
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const g of G.values()){x0=Math.min(x0,g.bb[0]);y0=Math.min(y0,g.bb[1]);x1=Math.max(x1,g.bb[2]);y1=Math.max(y1,g.bb[3])}
@@ -1023,7 +1050,7 @@ function init(){
   let loaded=false,sv=null;try{const o=JSON.parse(localStorage.getItem('nplan.v1')||'null');if(o&&o.st&&Array.isArray(o.st.pieces)){st=o.st;Object.assign(ui,o.ui||{});loaded=true;if(o.view&&o.view.s>0&&o.view.w>0)sv=o.view}}catch(e){}
   savedView=sv;
   if(!loaded)loadSample();
-  if(!SYS[ui.sys])ui.sys='kato';sel.value=ui.sys;
+  if(!SYS[ui.sys]||SYS[ui.sys].hide)ui.sys='minitrix';sel.value=ui.sys;
   setDir(ui.dir);
   rebuild();renderPalette();renderCtx();updEdit();
   new ResizeObserver(()=>resize()).observe($('stage'));resize();
