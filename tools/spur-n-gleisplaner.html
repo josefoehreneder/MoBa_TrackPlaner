@@ -57,7 +57,7 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:8px;paddi
 .legend{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
 .legend i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--down),var(--ballast),var(--up))}
 #toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:calc(100% - 120px);text-align:center;pointer-events:none}
-.modehint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px}
+.modehint{cursor:pointer;max-width:calc(100% - 24px);text-align:center;position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px}
 
 /* dock */
 .dock{background:var(--panel);border-top:1px solid var(--line);padding-bottom:4px}
@@ -140,6 +140,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 .tools .seg button{min-height:38px}
 .spacer{display:none}
 .chip.wide{width:auto;padding:4px 14px}
+.chip.auto{width:auto;min-width:60px;padding:4px 9px}
 @media (max-width:480px){
   .brand h1{display:none}
   .top{gap:6px;padding-block:6px}
@@ -257,6 +258,9 @@ const W3=(id,L,R,A,o={})=>({id,t:'T',L,R,A,three:true,name:'Dreiwegweiche',...o}
 // Doppelkreuzungsweiche: Geometrie wie Kreuzung, zusätzlich Bogenverbindungen
 const DKW=(L,A,o={})=>({id:`DKW${L}-${A}`,t:'X',L,A,dkw:true,...o});
 const ax=o=>Object.assign(o,{approx:true});
+// Sondergleise (Analogbetrieb): Geometrie wie Grundgleis, plus Funktion
+// fn: feed=Anschlussgleis, iso=Trenngleis, unc=Entkupplungsgleis, contact=Schaltgleis, buffer=Prellbock, lx=Bahnübergang
+const SP=(fn,name,base,o={})=>Object.assign({},base,{id:fn+(o.v||'')+'-'+base.id,fn,name},o);
 const SYS={
   minitrix:{name:'Minitrix',parts:[
     S(312.6),S(104.2),S(76.3),S(54.2),S(50),S(33.6),S(27.9),S(17.5),
@@ -265,18 +269,26 @@ const SYS={
     C(329,15),C(362.6,15),C(492.6,15),C(526.2,15),
     Wt('W24',104.2,194.6,24,'Weiche 24°'),Wt('W15',112.6,362.6,15,'Weiche 15°'),
     ax(W3('W3-15',112.6,362.6,15)),ax(Bw('BW30',194.6,228.2,30)),
-    X(104.2,30),X(129.8,15),DKW(129.8,15)]},
+    X(104.2,30),X(129.8,15),DKW(129.8,15),
+    SP('feed','Anschlussgleis',S(104.2)),SP('feed','Anschlussgleis',C(194.6,30)),
+    SP('iso','Trenngleis',S(104.2)),SP('iso','Trenngleis',C(228.2,24)),
+    SP('unc','Entkupplungsgleis',S(104.2)),SP('buffer','Prellbock',S(50),{approx:true})]},
   fleischmann:{name:'Fleischmann piccolo',parts:[
     S(222),S(111),S(57.5),S(55.5),S(27.75),
     C(192,45),C(192,15),C(192,7.5),C(225.6,45),C(225.6,15),C(225.6,7.5),
     C(396.4,30),C(396.4,15),C(430,30),C(430,15),
     Wt('W15',111,430,15,'Weiche 15°'),W3('W3-15',111,430,15),Bw('BW45',192,225.6,45),
-    X(115,30),X(111,15),DKW(111,15)]},
+    X(115,30),X(111,15),DKW(111,15),
+    SP('feed','Anschlussgleis',S(111)),
+    SP('unc','Entkupplungsgleis elektrisch',S(111),{sub:'elektr.'}),SP('unc','Entkupplungsgleis Hand',S(111),{v:'h',sub:'Hand'}),
+    SP('contact','Schaltgleis',S(55.5)),SP('buffer','Prellbock',S(57.5)),
+    SP('lx','Bahnübergang',S(55.5)),SP('lx','Bahnübergang mit Unterbrecher',S(55.5),{v:'u',sub:'Unterbr.'})]},
   peco:{name:'Peco Setrack',parts:[
     S(174),S(87),S(58),
     C(228,45),C(228,22.5),C(228,11.25),C(263.5,45),C(263.5,22.5),
     C(298.5,45),C(298.5,22.5),C(333.4,45),C(333.4,22.5),
-    Wt('W22',87,228,22.5,'Weiche'),ax(Bw('BW30',263.5,298.5,30)),ax(X(87,22.5))]},
+    Wt('W22',87,228,22.5,'Weiche'),ax(Bw('BW30',263.5,298.5,30)),ax(X(87,22.5)),
+    SP('feed','Anschlussgleis',S(87)),SP('buffer','Prellbock',S(30),{approx:true})]},
   // nicht mehr angeboten – nur damit ältere Pläne weiter funktionieren
   kato:{name:'Kato Unitrack',hide:true,parts:[S(248),S(186),S(124),S(64),S(62),
     C(216,45),C(249,45),C(282,45),C(315,45),C(315,15),C(348,30),C(381,15),C(718,15),
@@ -291,7 +303,7 @@ for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q
 
 /* ---------- State ---------- */
 let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
-let ui={sys:'minitrix',dir:1,cont:true,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
+let ui={sys:'minitrix',dir:1,cont:true,secs:false,markK:null,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
 let G=new Map(), links=new Map(), openC=[], conflicts=[], jumps=[], bridges=0;
 const undoStack=[];
 const view={s:.5,ox:0,oy:0};
@@ -306,13 +318,14 @@ function partOf(pc){return pc.cu||SYS[pc.sys].parts.find(p=>p.id===pc.pid)}
 function lenOf(p){return p.t==='C'?p.R*p.A*DEG:p.t==='B'?(p.L0||0)+p.R2*p.A*DEG:p.L}
 const flat=p=>p.t==='T'||p.t==='X'||p.t==='B';
 const isTurnout=p=>p.t==='T'||p.t==='B';
-function pname(p){switch(p.t){
+function pname(p){if(p.fn)return p.t==='C'?`${p.name} R${fmt(p.R)} · ${fmt(p.A)}°`:`${p.name} ${fmt(p.L)} mm`;switch(p.t){
   case'S':return p.fill?`Ausgleichsstück ${fmt(p.L)} mm`:`Gerade ${fmt(p.L)} mm`;
   case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen R${fmt(p.R)} · ${fmt(p.A)}°`;
   case'T':{const n=p.three?'Dreiwegweiche':(p.name||'Weiche');return `${n.includes('°')?n:n+' '+fmt(p.A)+'°'} · R${fmt(p.R,0)}`}
   case'X':return p.dkw?`Doppelkreuzungsweiche ${fmt(p.A)}°`:`Kreuzung ${fmt(p.A)}° · ${fmt(p.L)} mm`;
   case'B':return `Bogenweiche R${fmt(p.R1,0)}/R${fmt(p.R2,0)} · ${fmt(p.A)}°`;}}
-function chipText(p){switch(p.t){
+const FNS={feed:'Anschluss',iso:'Trenngleis',unc:'Entkuppl.',contact:'Schaltgl.',buffer:'Prellbock',lx:'Bahnübg.'};
+function chipText(p){if(p.fn)return[FNS[p.fn],p.sub||(p.t==='C'?'R'+fmt(p.R,0)+' '+fmt(p.A)+'°':fmt(p.L)+' mm')];switch(p.t){
   case'S':return [fmt(p.L),'Gerade'];
   case'C':return ['R'+fmt(p.R,0),fmt(p.A)+'°'];
   case'T':return [p.three?'Dreiweg':p.name&&p.name.includes('Nr')?p.name.replace('Weiche ',''):'Weiche',fmt(p.A)+'° R'+fmt(p.R,0)];
@@ -344,7 +357,7 @@ function localPaths(p,d){
   }}
 function localConns(p,d){
   switch(p.t){
-    case'S':return[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:1}];
+    case'S':return p.fn==='buffer'?[{x:0,y:0,a:PI,f:0}]:[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:1}];
     case'C':{const a=p.A*DEG;return[{x:0,y:0,a:PI,f:0},{x:p.R*Math.sin(a),y:d*p.R*(1-Math.cos(a)),a:d*a,f:1}]}
     case'T':{const b=branch(p,d),o=[{x:0,y:0,a:PI,f:0},{x:p.L,y:0,a:0,f:0},{x:b.ex,y:b.ey,a:d*b.a,f:0}];
       if(p.three)o.push({x:b.ex,y:-b.ey,a:-d*b.a,f:0});return o}
@@ -402,7 +415,51 @@ function rebuild(){
     if(hit&&!conflicts.some(c=>Math.hypot(c.x-hit.x,c.y-hit.y)<40))conflicts.push(hit);
     if(bridge&&!hit)bridges++;
   }
+  analyse();
 }
+/* ---------- Analog: Polarität, Kehrschleifen, Stromabschnitte ---------- */
+let AN={rev:[],secs:0,unfed:0,secOf:new Map(),fedSec:new Set(),any:false};
+const isHead=(p,ci)=>p.t==='X'?(ci===1||ci===3):ci!==0;
+function marksAt(id,ci){const L=links.get(key(id,ci));return(st.marks||[]).filter(m=>(m.id===id&&m.ci===ci)||(L&&m.id===L.id&&m.ci===L.ci))}
+function cutLevel(id,ci){let lvl=0;const L=links.get(key(id,ci));
+  for(const m of marksAt(id,ci))lvl=Math.max(lvl,m.k==='iso2'?2:m.k==='iso1'?1:0);
+  const pc=(i,c)=>{const o=byId(i),q=partOf(o);return q.fn==='iso'&&c===1?(o.iso2?2:1):0};
+  lvl=Math.max(lvl,pc(id,ci));if(L)lvl=Math.max(lvl,pc(L.id,L.ci));return lvl}
+function analyse(){
+  if(!st.marks)st.marks=[];
+  st.marks=st.marks.filter(m=>G.has(m.id)&&m.ci<G.get(m.id).conns.length);
+  // Polarität ohne Rücksicht auf Trennstellen; jede Kehrschleife gilt erst als gesichert,
+  // wenn auf ihrem Ring mindestens zwei beidseitige Trennstellen liegen (Ein- und Ausfahrt).
+  const pol=new Map(),par=new Map(),rev=[];
+  const pathUp=id=>{const o=[];let cur=id;while(par.get(cur)){const pp=par.get(cur);o.push(pp);cur=pp.from}return o};
+  for(const s0 of st.pieces){if(pol.has(s0.id))continue;pol.set(s0.id,1);par.set(s0.id,null);const q=[s0.id];
+    while(q.length){const id=q.shift(),pa=partOf(byId(id));
+      G.get(id).conns.forEach((c,ci)=>{const L=links.get(key(id,ci));if(!L)return;
+        const pb=partOf(byId(L.id)),exp=pol.get(id)*(isHead(pa,ci)!==isHead(pb,L.ci)?1:-1);
+        if(!pol.has(L.id)){pol.set(L.id,exp);par.set(L.id,{from:id,ci});q.push(L.id)}
+        else if(pol.get(L.id)!==exp&&!rev.some(r=>Math.hypot(r.x-c.x,r.y-c.y)<30)){
+          // Ring = Baumpfad id→LCA + Baumpfad L.id→LCA + diese Verbindung
+          const pu=pathUp(id),pv=pathUp(L.id),anc=new Set([id,...pu.map(e=>e.from)]);
+          let lca=L.id;const ev=[];for(const e of pv){if(anc.has(lca))break;ev.push(e);lca=e.from}
+          const eu=[];let cur=id;for(const e of pu){if(cur===lca)break;eu.push(e);cur=e.from}
+          let cuts=cutLevel(id,ci)>=2?1:0;for(const e of[...eu,...ev])if(cutLevel(e.from,e.ci)>=2)cuts++;
+          rev.push({x:c.x,y:c.y,ok:cuts>=2})}})}}
+  const secOf=new Map();let n=0;
+  for(const s0 of st.pieces){if(secOf.has(s0.id))continue;secOf.set(s0.id,n);const q=[s0.id];
+    while(q.length){const id=q.shift();G.get(id).conns.forEach((c,ci)=>{const L=links.get(key(id,ci));
+      if(L&&!secOf.has(L.id)&&cutLevel(id,ci)===0){secOf.set(L.id,n);q.push(L.id)}})}n++}
+  const fed=new Set();
+  for(const pc of st.pieces)if(partOf(pc).fn==='feed')fed.add(secOf.get(pc.id));
+  for(const m of st.marks)if(m.k==='feed')fed.add(secOf.get(m.id));
+  const any=st.marks.length>0||st.pieces.some(pc=>partOf(pc).fn);
+  AN={rev,secs:n,unfed:n-fed.size,secOf,fedSec:fed,any};
+}
+function toggleMark(id,ci,k){snap();
+  const ex=marksAt(id,ci),grp=k==='feed'?['feed']:['iso1','iso2'],same=ex.find(m=>m.k===k);
+  st.marks=st.marks.filter(m=>!(ex.includes(m)&&grp.includes(m.k)));
+  if(!same)st.marks.push({id,ci,k});
+  rebuild();changed();
+  toast(same?'Markierung entfernt':k==='feed'?'Einspeisung gesetzt':k==='iso2'?'Trennstelle beidseitig gesetzt':'Trennstelle einseitig gesetzt')}
 function zAt(pc,ci){const p=partOf(pc);return pc.z0+(flat(p)?0:pc.rise)*localConns(p,pc.d)[ci].f}
 function propagate(start){
   rebuild();const seen=new Set([start.id]),q=[start];
@@ -553,7 +610,7 @@ function insertPart(sys,pid,cu,d){
       chain.push(cur);tot+=partOf(cur).L;const ex=1-enter,nx=links.get(key(cur.id,ex));after=nx||null;
       if(tot>=tL-.6||!nx)break;cur=byId(nx.id);enter=nx.ci}
     if(chain.length&&tot>=tL-.6){
-      const sysK=chain[0].cu?sys:chain[0].sys,lens=SYS[sysK].parts.filter(q=>q.t==='S').map(q=>q.L).sort((a,b)=>b-a);
+      const sysK=chain[0].cu?sys:chain[0].sys,lens=SYS[sysK].parts.filter(q=>q.t==='S'&&!q.fn&&!q.hide).map(q=>q.L).sort((a,b)=>b-a);
       const rem=tot-tL;let fill=findFillers(rem,lens),cut=0;
       if(!fill){fill=bestUnder(rem,lens);cut=+(rem-fill.reduce((a,b)=>a+b,0)).toFixed(1)}
       const removed=chain.map(c=>pname(partOf(c)));
@@ -577,7 +634,7 @@ function insertPart(sys,pid,cu,d){
           chain.push(cur);tot+=q.A;const nx=links.get(key(cur.id,1-enter));
           if(tot>=part.A-.05||!nx)break;cur=byId(nx.id);enter=nx.ci}
         if(chain.length&&tot>=part.A-.05){
-          const sysK=chain[0].cu?sys:chain[0].sys,arcs=SYS[sysK].parts.filter(q=>q.t==='C'&&Math.abs(q.R-R)<1);
+          const sysK=chain[0].cu?sys:chain[0].sys,arcs=SYS[sysK].parts.filter(q=>q.t==='C'&&!q.fn&&!q.hide&&Math.abs(q.R-R)<1);
           const angs=[...new Set(arcs.map(q=>q.A))].sort((a,b)=>b-a);
           const rem=tot-part.A;let fill=findFillers(rem,angs,.1),cut=0;
           if(!fill){fill=bestUnder(rem,angs);cut=+(rem-fill.reduce((a,b)=>a+b,0)).toFixed(2)}
@@ -694,11 +751,13 @@ function draw(){
     for(const p of g.paths){const a=p[0],b=p[p.length-1];
       if(Math.abs(a.z-b.z)>.5){const gr=ctx.createLinearGradient(sx(a.x),sy(a.y),sx(b.x),sy(b.y));gr.addColorStop(0,zcol(a.z));gr.addColorStop(1,zcol(b.z));ctx.strokeStyle=gr}
       else ctx.strokeStyle=zcol(a.z);
+      if(ui.secs)ctx.strokeStyle=secCol(pc.id);
       ctx.lineWidth=Math.max(3,25*s);poly(p);ctx.stroke()}
     if(s>1.0){ctx.strokeStyle=COL.tie;ctx.lineWidth=Math.max(1,1.6*s);ctx.beginPath();
       for(const t of g.ties){ctx.moveTo(sx(t[0]),sy(t[1]));ctx.lineTo(sx(t[2]),sy(t[3]))}ctx.stroke()}
     ctx.strokeStyle=COL.rail;ctx.lineWidth=Math.max(.8,.9*s);
     for(const[l,r]of g.rails){if(s>.28){poly(l);ctx.stroke();poly(r);ctx.stroke()}else{poly(g.paths[0]);}}
+    if(partOf(pc).fn&&s>.22)drawFn(pc,g,s);
     // Stoßstellen
     ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(1,1.2*s);ctx.beginPath();
     for(const c of g.conns){const nx=-Math.sin(c.a)*12.5,ny=Math.cos(c.a)*12.5;ctx.moveTo(sx(c.x+nx),sy(c.y+ny));ctx.lineTo(sx(c.x-nx),sy(c.y-ny))}ctx.stroke();
@@ -711,6 +770,18 @@ function draw(){
     for(const pc of st.pieces){const g=G.get(pc.id);g.conns.forEach(c=>{if(Math.abs(c.z)<1)return;
       if(seen.some(q=>Math.hypot(q.x-c.x,q.y-c.y)<20))return;seen.push(c);
       const ox=-Math.sin(c.a)*22,oy=Math.cos(c.a)*22;pillText(sx(c.x)+ox*Math.min(1,s*1.4),sy(c.y)+oy*Math.min(1,s*1.4),fz(c.z),COL.ink,COL.bg)})}}
+  // Trennstellen & Einspeisungen
+  for(const m of st.marks||[]){const c=G.get(m.id).conns[m.ci],nx=-Math.sin(c.a),ny=Math.cos(c.a),tx=Math.cos(c.a),ty=Math.sin(c.a);
+    if(m.k==='feed'){const ox=sx(c.x+nx*20),oy=sy(c.y+ny*20);ctx.strokeStyle=COL.bad;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(c.x+nx*4.5),sy(c.y+ny*4.5));ctx.lineTo(ox,oy);ctx.stroke();
+      ctx.fillStyle=COL.bad;ctx.beginPath();ctx.arc(ox,oy,Math.max(7,8*s),0,TAU);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font=`700 ${Math.max(10,11*s)}px Barlow, system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('+',ox,oy+.5)}
+    else{const sides=m.k==='iso2'?[1,-1]:[1];
+      for(const sd of sides){const px=c.x+nx*4.5*sd,py=c.y+ny*4.5*sd,L=Math.max(5,7/s);
+        ctx.strokeStyle=COL.bad;ctx.lineWidth=Math.max(3,3.5*s);ctx.beginPath();ctx.moveTo(sx(px-nx*L*.6),sy(py-ny*L*.6));ctx.lineTo(sx(px+nx*L*.6),sy(py+ny*L*.6));ctx.stroke()}
+      pillText(sx(c.x+nx*24),sy(c.y+ny*24),m.k==='iso2'?'getrennt 2×':'getrennt',COL.bad,'#fff')}}
+  // Kehrschleifen
+  for(const r of AN.rev){const col=r.ok?COL.warn:COL.bad;ctx.save();ctx.setLineDash([6,4]);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx(r.x),sy(r.y),Math.max(16,28*s),0,TAU);ctx.stroke();ctx.restore();
+    pillText(sx(r.x),sy(r.y)+Math.max(16,28*s)+11,r.ok?'Kehrschleife getrennt – Schalter nötig':'Kehrschleife – beidseitig trennen',col,'#fff')}
   // Konflikte & Höhensprünge
   for(const c of conflicts){ctx.strokeStyle=COL.bad;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx(c.x),sy(c.y),Math.max(12,22*s),0,TAU);ctx.stroke();
     pillText(sx(c.x),sy(c.y)-Math.max(12,22*s)-10,c.dz<1?'Überlappung':`nur ${Math.round(c.dz)} mm`,COL.bad,'#fff')}
@@ -733,6 +804,26 @@ function draw(){
     if(A.cur){ctx.fillStyle=COL.ink;ctx.font='600 11px Barlow, system-ui, sans-serif';ctx.textAlign='center';ctx.fillText('Start',x,y-18)}}
 }
 
+const SECC=['#3B7FC4','#D2832A','#2E9A66','#B04C9C','#BF9A00','#5868D8','#C24A3E','#2696AA'];
+function secCol(id){const i=AN.secOf.get(id);return i===undefined?COL.ballast:SECC[i%SECC.length]}
+function drawFn(pc,g,s){const p=partOf(pc),path=g.paths[0],i=Math.floor(path.length/2),m=path[i],
+    a0=path[Math.max(0,i-1)],a1=path[Math.min(path.length-1,i+1)],h=Math.atan2(a1.y-a0.y,a1.x-a0.x),
+    nx=-Math.sin(h),ny=Math.cos(h),tx=Math.cos(h),ty=Math.sin(h);
+  const L=(x0,y0,x1,y1,col,w)=>{ctx.strokeStyle=col;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(sx(x0),sy(y0));ctx.lineTo(sx(x1),sy(y1));ctx.stroke()};
+  switch(p.fn){
+    case'feed':for(const[sd,col]of[[1,COL.bad],[-1,COL.up]]){const ex=m.x+nx*sd*22,ey=m.y+ny*sd*22;
+      L(m.x+nx*sd*4.5,m.y+ny*sd*4.5,ex,ey,col,Math.max(1.5,2*s));ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx(ex),sy(ey),Math.max(3,3.5*s),0,TAU);ctx.fill()}break;
+    case'iso':for(const sd of pc.iso2?[1,-1]:[1]){const px=m.x+nx*sd*4.5,py=m.y+ny*sd*4.5;
+      L(px-tx*2,py-ty*2,px+tx*2,py+ty*2,COL.board,Math.max(3,5*s));L(px-nx*4,py-ny*4,px+nx*4,py+ny*4,COL.bad,Math.max(2,2.5*s))}break;
+    case'unc':{const w=3.2,l=14;ctx.fillStyle=COL.ink;ctx.beginPath();
+      [[-l,-w],[l,-w],[l,w],[-l,w]].forEach(([u,v],k)=>{const X=sx(m.x+tx*u+nx*v),Y=sy(m.y+ty*u+ny*v);k?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.closePath();ctx.fill()}break;
+    case'contact':ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx(m.x),sy(m.y),Math.max(3.5,4*s),0,TAU);ctx.fill();ctx.stroke();break;
+    case'lx':{const w=20,l=24;ctx.fillStyle=COL.muted;ctx.globalAlpha=.55;ctx.beginPath();
+      [[-w,-l],[w,-l],[w,l],[-w,l]].forEach(([u,v],k)=>{const X=sx(m.x+tx*u+nx*v),Y=sy(m.y+ty*u+ny*v);k?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+      for(const u of[-w,w])L(m.x+tx*u-nx*l,m.y+ty*u-ny*l,m.x+tx*u+nx*l,m.y+ty*u+ny*l,COL.panel,Math.max(1,1.2*s));
+      if(p.v==='u')ctx.fillStyle=COL.accent,ctx.beginPath(),ctx.arc(sx(m.x),sy(m.y),Math.max(3,3.5*s),0,TAU),ctx.fill()}break;
+    case'buffer':{const e=path[path.length-1];L(e.x+nx*11,e.y+ny*11,e.x-nx*11,e.y-ny*11,COL.bad,Math.max(3,5*s))}break;
+  }}
 /* ---------- Eingabe ---------- */
 const ptrs=new Map();let gest=null;
 function pos(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
@@ -759,6 +850,9 @@ cv.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e),f=Math.exp(-e.
 function tap(px,py){
   const wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;
   if(ui.ins&&ui.mode!=='start'){ui.ins=null}
+  if(ui.mode==='mark'){let best=null,bd=30;
+    for(const pc of st.pieces)G.get(pc.id).conns.forEach((c,ci)=>{const d=Math.hypot(sx(c.x)-px,sy(c.y)-py);if(d<bd){bd=d;best={id:pc.id,ci}}});
+    if(best)toggleMark(best.id,best.ci,ui.markK);else toast('Keine Gleisverbindung getroffen – näher an einen Stoß tippen');return}
   if(ui.mode==='start'){snap();st.cursor={x:Math.round(wx/5)*5,y:Math.round(wy/5)*5,a:st.cursor.a,z:st.cursor.z};st.active={type:'cursor'};ui.sel=null;setStartMode(false);changed();return}
   let best=null,bd=34;
   for(const o of openC){const d=Math.hypot(sx(o.c.x)-px,sy(o.c.y)-py);if(d<bd){bd=d;best=o}}
@@ -770,7 +864,7 @@ function tap(px,py){
 
 /* ---------- UI ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2200)}
-function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip}}))}catch(e){}}
+function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip,secs:ui.secs}}))}catch(e){}}
 function changed(doSave=true){if(doSave)save();renderCtx();updEdit();draw();if(ui.view3)queue3()}
 function totals(){let len=0,mg=0;for(const g of G.values()){len+=g.p.t==='T'?g.p.L:g.p.t==='X'?g.p.L:g.len;mg=Math.max(mg,Math.abs(g.grade))}return{len,mg}}
 function renderCtx(){
@@ -784,6 +878,7 @@ function renderCtx(){
     ${isTurnout(p)?'<button class="btn" data-a="swap" title="Hauptstrang und Abzweig tauschen">⑂ Abzweig tauschen</button>':''}
     ${p.t==='S'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Weiche einsetzen</button>':''}
     ${p.t==='C'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Bogenweiche einsetzen</button>':''}
+    ${p.fn==='iso'?`<button class="btn" data-a="iso2" aria-pressed="${!!pc.iso2}">${pc.iso2?'Beidseitig getrennt':'Einseitig getrennt'}</button>`:''}
     <button class="btn" data-a="ins">Davor einfügen</button>
     <button class="btn danger" data-a="del">Löschen</button><button class="btn" data-a="x" aria-label="Auswahl aufheben">✕</button>`;
   }else if(insJoint()){const J=insJoint(),o=byId(J.other.id);
@@ -796,10 +891,14 @@ function renderCtx(){
     <div class="stepper"><span>Richtung</span><button data-a="c-" aria-label="Links drehen">↺</button><output><span class="arrow" style="transform:rotate(${deg}deg)">➜</span> ${deg}°</output><button data-a="c+" aria-label="Rechts drehen">↻</button></div>
     <div class="stepper"><span>Höhe</span><button data-a="cz-">−</button><output>${fz(st.cursor.z)}</output><button data-a="cz+">+</button></div>`;
   }else{const t=totals();
+    const showFeed=(ui.secs||AN.any)&&st.pieces.length,unfed=showFeed?AN.unfed:0;
     const warn=[conflicts.length?`<span class="pill bad">${conflicts.length} Kollision${conflicts.length>1?'en':''}</span>`:'',
+      AN.rev.some(r=>!r.ok)?`<span class="pill bad">Kehrschleife ungetrennt</span>`:'',
+      AN.rev.some(r=>r.ok)?`<span class="pill warn">Kehrschleife: Schalter nötig</span>`:'',
       jumps.length?`<span class="pill warn">${jumps.length} Höhensprung</span>`:'',
-      !conflicts.length&&!jumps.length&&st.pieces.length?'<span class="pill ok">Plan ok</span>':''].join(' ');
-    el.innerHTML=`<div class="stat"><span><b>${st.pieces.length}</b> Gleise</span><span><b>${fmt(t.len/1000,2)}</b> m</span><span>max. <b>${fmt(t.mg)}</b> %</span>${bridges?`<span><b>${bridges}</b> Überführung${bridges>1?'en':''}</span>`:''}</div>${warn}
+      unfed?`<span class="pill warn">${AN.fedSec.size?unfed+' Abschnitt'+(unfed>1?'e':'')+' ohne Strom':'Keine Einspeisung'}</span>`:'',
+      !conflicts.length&&!jumps.length&&!AN.rev.some(r=>!r.ok)&&!unfed&&st.pieces.length?'<span class="pill ok">Plan ok</span>':''].join(' ');
+    el.innerHTML=`<div class="stat"><span><b>${st.pieces.length}</b> Gleise</span><span><b>${fmt(t.len/1000,2)}</b> m</span><span>max. <b>${fmt(t.mg)}</b> %</span>${bridges?`<span><b>${bridges}</b> Überführung${bridges>1?'en':''}</span>`:''}${showFeed&&AN.secs>1?`<span><b>${AN.secs}</b> Abschnitte</span>`:''}</div>${warn}
     ${st.active?'':'<span style="color:var(--muted);font-size:12.5px;white-space:nowrap">Gelben Anschluss antippen, dann Gleis wählen</span>'}`;
   }
 }
@@ -817,6 +916,7 @@ $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(a==='flip'){const pm=p.t==='X'?{0:1,1:0,2:3,3:2}:{0:1,1:0};reorient(pc,p.t==='X'?pc.d:-pc.d,pm,'Umgedreht')}
   if(a==='swap')reorient(pc,pc.d,{1:2,2:1},'Abzweig getauscht');
   if(a==='del')del(pc);
+  if(a==='iso2'){snap();pc.iso2=!pc.iso2;rebuild();changed();toast(pc.iso2?'Trenngleis: beide Schienen getrennt':'Trenngleis: eine Schiene getrennt')}
   if(a==='ins')startInsert(pc);
   if(a==='wins')openTurnoutPicker(pc);
 });
@@ -828,9 +928,13 @@ function iconSVG(p,d){
   const ds=paths.map(pt=>'M'+pt.map(q=>`${((q[0]-mnx)*sc+ox).toFixed(1)} ${((q[1]-mny)*sc+oy).toFixed(1)}`).join(' L')).join(' ');
   return `<svg viewBox="0 0 46 30" aria-hidden="true"><path d="${ds}"/></svg>`;
 }
-const TABS=[['S','Gerade'],['C','Bögen'],['T','Weichen'],['X','Kreuz.'],['U','Eigen']];
+const TABS=[['S','Gerade'],['C','Bögen'],['T','Weichen'],['X','Kreuz.'],['A','Analog'],['U','Eigen']];
+const MK_ICON={iso1:'<svg viewBox="0 0 46 30" aria-hidden="true"><path d="M4 11H42M4 19H42"/><path d="M23 6V16" style="stroke:var(--bad);stroke-width:4"/></svg>',
+  iso2:'<svg viewBox="0 0 46 30" aria-hidden="true"><path d="M4 11H42M4 19H42"/><path d="M23 4V26" style="stroke:var(--bad);stroke-width:4"/></svg>',
+  feed:'<svg viewBox="0 0 46 30" aria-hidden="true"><path d="M4 11H42M4 19H42"/><circle cx="23" cy="25" r="4.5" style="fill:var(--bad);stroke:none"/><path d="M23 11V21" style="stroke:var(--bad)"/></svg>',
+  secs:'<svg viewBox="0 0 46 30" aria-hidden="true"><path d="M4 15H21" style="stroke:#3B7FC4;stroke-width:6"/><path d="M25 15H42" style="stroke:#D2832A;stroke-width:6"/></svg>'};
 function renderPalette(){
-  const parts=SYS[ui.sys].parts,avail=TABS.filter(([t])=>t==='U'||parts.some(p=>!p.hide&&(p.t===t||(t==='T'&&p.t==='B'))));
+  const parts=SYS[ui.sys].parts,avail=TABS.filter(([t])=>t==='U'||t==='A'||parts.some(p=>!p.hide&&!p.fn&&(p.t===t||(t==='T'&&p.t==='B'))));
   if(!avail.some(([t])=>t===ui.tab))ui.tab='S';
   $('tabs').innerHTML=avail.map(([t,n])=>`<button data-t="${t}" aria-pressed="${t===ui.tab}">${n}</button>`).join('');
   let h='';
@@ -839,15 +943,27 @@ function renderPalette(){
        <button class="chip wide" data-u="C">${iconSVG({t:'C',R:300,A:30},ui.dir)}<b>Bogen</b><small>Radius frei</small></button>
        <button class="chip wide" data-u="T">${iconSVG({t:'T',L:111,R:430,A:15},ui.dir)}<b>Weiche</b><small>Maße frei</small></button>
        <button class="chip wide" data-u="B">${iconSVG({t:'B',R1:200,R2:240,A:30,L0:0},ui.dir)}<b>Bogenweiche</b><small>Maße frei</small></button>`;
-  }else for(const p of parts.filter(p=>!p.hide&&(p.t===ui.tab||(ui.tab==='T'&&p.t==='B')))){const[a,b]=chipText(p);h+=`<button class="chip" data-id="${p.id}" aria-label="${pname(p)}${p.approx?' (Maße angenähert)':''}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${p.approx?'≈ ':''}${b}</small></button>`}
+  }else if(ui.tab==='A'){
+    for(const p of parts.filter(p=>!p.hide&&p.fn)){const[a,b]=chipText(p);h+=`<button class="chip auto" data-id="${p.id}" aria-label="${pname(p)}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${p.approx?'≈ ':''}${b}</small></button>`}
+    const mk=(k,a,b)=>`<button class="chip auto" data-m="${k}" aria-pressed="${ui.mode==='mark'&&ui.markK===k}">${MK_ICON[k]}<b>${a}</b><small>${b}</small></button>`;
+    h+=`<span class="grp">An Stößen</span>`+mk('iso1','Trennstelle','einseitig')+mk('iso2','Trennstelle','beidseitig')+mk('feed','Einspeisung','Kabel')
+      +`<button class="chip auto" data-secs="1" aria-pressed="${!!ui.secs}">${MK_ICON.secs}<b>Abschnitte</b><small>${ui.secs?'ausblenden':'anzeigen'}</small></button>`;
+  }else for(const p of parts.filter(p=>!p.hide&&!p.fn&&(p.t===ui.tab||(ui.tab==='T'&&p.t==='B')))){const[a,b]=chipText(p);h+=`<button class="chip" data-id="${p.id}" aria-label="${pname(p)}${p.approx?' (Maße angenähert)':''}">${iconSVG(p,ui.dir)}<b>${a}</b><small>${p.approx?'≈ ':''}${b}</small></button>`}
   $('palette').innerHTML=h;$('palette').scrollLeft=0;
 }
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ui.tab=b.dataset.t;renderPalette();save()});
 $('palette').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
+  if(b.dataset.m){setMarkMode(b.dataset.m);return}
+  if(b.dataset.secs){ui.secs=!ui.secs;renderPalette();changed(false);save();return}
   if(b.dataset.u)openCustom(b.dataset.u);else usePart(ui.sys,b.dataset.id,null)});
+function setMarkMode(k){if(ui.mode==='mark'&&ui.markK===k){ui.mode=null;ui.markK=null}else{if(ui.mode==='start')setStartMode(false);ui.mode='mark';ui.markK=k;ui.ins=null}
+  const hint=$('modeHint');hint.hidden=ui.mode!=='mark';
+  if(ui.mode==='mark')hint.textContent=(k==='feed'?'Einspeisung':k==='iso2'?'Trennstelle beidseitig':'Trennstelle einseitig')+': Gleisstoß antippen · ✕ hier beenden';
+  renderPalette();draw()}
 function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===1);$('dirR').setAttribute('aria-pressed',d===-1);renderPalette();save()}
 $('dirL').onclick=()=>setDir(1);$('dirR').onclick=()=>setDir(-1);
-function setStartMode(on){ui.mode=on?'start':null;$('modeHint').hidden=!on;$('startBtn').setAttribute('aria-pressed',on);draw()}
+$('modeHint').onclick=()=>{if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
+function setStartMode(on){if(on&&ui.mode==='mark'){ui.markK=null;renderPalette()}ui.mode=on?'start':null;$('modeHint').hidden=!on;if(on)$('modeHint').textContent='Auf die Platte tippen oder den gelben Pfeil ziehen';$('startBtn').setAttribute('aria-pressed',on);draw()}
 $('startBtn').onclick=()=>{if(ui.view3){setView(false)}
   if(ui.mode==='start'){setStartMode(false);return}
   st.active={type:'cursor'};ui.sel=null;setStartMode(true);changed(false)};
@@ -891,9 +1007,13 @@ $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
 function bom(){const m=new Map();
   for(const pc of st.pieces){const p=partOf(pc),src=pc.cu?'Eigenes Maß':SYS[pc.sys].name;
-    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.approx?' (Maße angenähert)':'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
     const k=src+'|'+n;m.set(k,(m.get(k)||0)+1)}
-  return[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}})}
+  let i1=0,fd=0;for(const mk of st.marks||[]){if(mk.k==='iso1')i1+=1;if(mk.k==='iso2')i1+=2;if(mk.k==='feed')fd++}
+  const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}});
+  if(i1)rows.push({s:'Zubehör',n:'Isolierschienenverbinder',v:i1});
+  if(fd)rows.push({s:'Zubehör',n:'Einspeisung (Anschlussklemme / Kabel)',v:fd});
+  return rows}
 $('menuBtn').onclick=()=>{
   const rows=bom(),t=totals();
   openSheet('Plan',`
@@ -911,6 +1031,8 @@ $('menuBtn').onclick=()=>{
   <div class="rules">
    <div class="rule"><b>${CLEAR} mm</b><span>Höhenabstand Schienenoberkante zu Schienenoberkante bei Überführungen (mit dünner Brücke). Darunter meldet der Plan eine Kollision.</span></div>
    <div class="rule"><b>≤ 3 %</b><span>Steigung, die die meisten Züge sicher schaffen. Ab 3 % wird die Anzeige orange, ab 4 % rot.</span></div>
+   <div class="rule"><b>Kehr&shy;schleife</b><span>Fährt ein Zug in sich selbst zurück, gibt es im Zweileiter-Betrieb einen Kurzschluss. Beide Schienen an Ein- und Ausfahrt trennen und einen Kehrschleifenschalter einbauen. Der Plan markiert Kehrschleifen rot gestrichelt.</span></div>
+   <div class="rule"><b>Ein&shy;speisung</b><span>Jeder durch Trennstellen abgeteilte Abschnitt braucht eine eigene Einspeisung. Bei langen Strecken zusätzlich etwa alle 1–2 m einspeisen. „Abschnitte anzeigen“ im Reiter Analog färbt die Stromabschnitte ein.</span></div>
    <div class="rule"><b>33,6 mm</b><span>Gleisabstand bei Parallelgleisen (Minitrix und Fleischmann 33,6 mm, Peco 35 mm).</span></div>
   </div>
   <p>Gleismaße sind Katalogwerte, gerundet. Teile mit „≈“ haben angenäherte Maße (Minitrix-Dreiwegweiche und -Bogenweiche, Peco-Bogenweiche und -Kreuzung). Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
