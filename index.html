@@ -94,6 +94,11 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:8px;paddi
 .legend{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
 .legend i{display:block;width:70px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--down),var(--ballast),var(--up))}
 #toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:calc(100% - 120px);text-align:center;pointer-events:none}
+#lvBar{position:absolute;left:max(10px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);z-index:6;display:flex;flex-direction:column;gap:2px;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.12);max-height:calc(100% - 150px);overflow-y:auto}
+#lvBar button{border:0;background:transparent;border-radius:9px;min-width:50px;min-height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px 6px;font-family:var(--f-display);font-weight:600;font-size:14px;line-height:1}
+#lvBar button small{font-family:var(--f-body);font-weight:500;font-size:10px;color:var(--muted)}
+#lvBar button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+#lvBar button[aria-pressed="true"] small{color:var(--bg);opacity:.8}
 #swLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3}
 .editbar,.fab{z-index:6}
 .swb{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 6px;border-radius:15px;border:2px solid var(--ink);background:var(--ok);color:#fff;font-family:var(--f-display);font-weight:700;font-size:13px;line-height:1;pointer-events:auto;box-shadow:0 2px 6px rgba(0,0,0,.3)}
@@ -268,6 +273,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
       <button id="startBtn" aria-label="Startpunkt festlegen" aria-pressed="false"><span class="ic">⌖</span><small>Start</small></button>
     </div>
     <div class="legend"><span>−</span><i></i><span>+80 mm</span></div>
+    <div id="lvBar" role="group" aria-label="Ebene" hidden></div>
     <div id="swLayer"></div>
     <div id="simBar" hidden role="toolbar" aria-label="Zug steuern">
       <button id="simPlay" class="btn primary" aria-label="Anhalten">⏸</button>
@@ -365,7 +371,7 @@ for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q
 
 /* ---------- State ---------- */
 let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
-let ui={sys:'minitrix',dir:1,cont:true,secs:false,markK:null,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
+let ui={level:'all',sys:'minitrix',dir:1,cont:true,secs:false,markK:null,tab:'S',cust:null,clip:null,sel:null,mode:null,view3:false};
 let G=new Map(), links=new Map(), openC=[], conflicts=[], jumps=[], bridges=0;
 const undoStack=[];
 const view={s:.5,ox:0,oy:0};
@@ -445,7 +451,8 @@ function geom(pc){
         ties.push([x-Math.sin(h)*8,y+Math.cos(h)*8,x+Math.sin(h)*8,y-Math.cos(h)*8,c[i].z])}}}
   let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9,zs=0,zn=0;
   for(const pt of paths)for(const q of pt){mnx=Math.min(mnx,q.x);mny=Math.min(mny,q.y);mxx=Math.max(mxx,q.x);mxy=Math.max(mxy,q.y);zs+=q.z;zn++}
-  return{p,conns,paths,rails,ties,avgz:zs/zn,bb:[mnx,mny,mxx,mxy],len:lenOf(p),grade:flat(p)?0:rise/lenOf(p)*100};
+  let zmin=1e9,zmax=-1e9;for(const pt of paths)for(const q of pt){zmin=Math.min(zmin,q.z);zmax=Math.max(zmax,q.z)}
+  return{p,conns,paths,rails,ties,avgz:zs/zn,zmin,zmax,bb:[mnx,mny,mxx,mxy],len:lenOf(p),grade:flat(p)?0:rise/lenOf(p)*100};
 }
 const byId=id=>st.pieces.find(p=>p.id===id);
 const key=(id,ci)=>id+':'+ci;
@@ -808,6 +815,7 @@ function draw(){
   for(const pc of order){const g=G.get(pc.id),high=g.avgz>=CLEAR*.6;
     if(ui.sel===pc.id){ctx.strokeStyle=COL.accent;ctx.globalAlpha=.45;ctx.lineWidth=Math.max(8,33*s);ctx.lineCap='round';g.paths.forEach(p=>{poly(p);ctx.stroke()});ctx.globalAlpha=1}
     ctx.lineCap='butt';
+    const dimLv=!onLv(pc.id);if(dimLv)ctx.globalAlpha=.16;
     if(high){ctx.save();ctx.translate(4,5);ctx.strokeStyle='rgba(0,0,0,.22)';ctx.lineWidth=Math.max(3,26*s);g.paths.forEach(p=>{poly(p);ctx.stroke()});ctx.restore();
       ctx.strokeStyle=COL.ink;ctx.lineWidth=Math.max(4,29*s);g.paths.forEach(p=>{poly(p);ctx.stroke()})}
     for(const p of g.paths){const a=p[0],b=p[p.length-1];
@@ -824,17 +832,18 @@ function draw(){
     // Stoßstellen
     ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(1,1.2*s);ctx.beginPath();
     for(const c of g.conns){const nx=-Math.sin(c.a)*12.5,ny=Math.cos(c.a)*12.5;ctx.moveTo(sx(c.x+nx),sy(c.y+ny));ctx.lineTo(sx(c.x-nx),sy(c.y-ny))}ctx.stroke();
+    ctx.globalAlpha=1;
   }
   // Steigungen & Höhen
-  if(s>.32){for(const pc of order){const g=G.get(pc.id);
+  if(s>.32){for(const pc of order){const g=G.get(pc.id);if(!onLv(pc.id))continue;
       if(Math.abs(g.grade)>.05){const p=g.paths[0],m=p[Math.floor(p.length/2)],gr=Math.abs(g.grade);
         pillText(sx(m.x),sy(m.y),fmt(gr)+' %',gr>4?COL.bad:gr>3?COL.warn:COL.panel,gr>3?'#fff':COL.ink)}}
     const seen=[];
-    for(const pc of st.pieces){const g=G.get(pc.id);g.conns.forEach(c=>{if(Math.abs(c.z)<1)return;
+    for(const pc of st.pieces){if(!onLv(pc.id))continue;const g=G.get(pc.id);g.conns.forEach(c=>{if(Math.abs(c.z)<1)return;
       if(seen.some(q=>Math.hypot(q.x-c.x,q.y-c.y)<20))return;seen.push(c);
       const ox=-Math.sin(c.a)*22,oy=Math.cos(c.a)*22;pillText(sx(c.x)+ox*Math.min(1,s*1.4),sy(c.y)+oy*Math.min(1,s*1.4),fz(c.z),COL.ink,COL.bg)})}}
   // Trennstellen & Einspeisungen
-  for(const m of st.marks||[]){const c=G.get(m.id).conns[m.ci],nx=-Math.sin(c.a),ny=Math.cos(c.a),tx=Math.cos(c.a),ty=Math.sin(c.a);
+  for(const m of st.marks||[]){if(!onLv(m.id))continue;const c=G.get(m.id).conns[m.ci],nx=-Math.sin(c.a),ny=Math.cos(c.a),tx=Math.cos(c.a),ty=Math.sin(c.a);
     if(m.k==='feed'){const ox=sx(c.x+nx*20),oy=sy(c.y+ny*20);ctx.strokeStyle=COL.bad;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(c.x+nx*4.5),sy(c.y+ny*4.5));ctx.lineTo(ox,oy);ctx.stroke();
       ctx.fillStyle=COL.bad;ctx.beginPath();ctx.arc(ox,oy,Math.max(7,8*s),0,TAU);ctx.fill();
       ctx.fillStyle='#fff';ctx.font=`700 ${Math.max(10,11*s)}px Barlow, system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('+',ox,oy+.5)}
@@ -855,7 +864,7 @@ function draw(){
     ctx.save();ctx.translate(x,y);ctx.rotate(PI/4);ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.fillRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.strokeRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.restore();
     pillText(x,y-24,'hier einfügen',COL.ink,COL.bg)}}
   // offene Anschlüsse
-  for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if(isA)continue;
+  for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if(isA||!onLv(o.id))continue;
     ctx.fillStyle=COL.panel;ctx.strokeStyle=COL.accent;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx(o.c.x),sy(o.c.y),6,0,TAU);ctx.fill();ctx.stroke()}
   drawTrain2D();placeSwitches();
   // aktiver Anschluss / Startpunkt
@@ -915,21 +924,21 @@ function tap(px,py){
   const wx=(px-view.ox)/view.s,wy=(py-view.oy)/view.s;
   if(ui.ins&&ui.mode!=='start'){ui.ins=null}
   if(ui.mode==='mark'){let best=null,bd=30;
-    for(const pc of st.pieces)G.get(pc.id).conns.forEach((c,ci)=>{const d=Math.hypot(sx(c.x)-px,sy(c.y)-py);if(d<bd){bd=d;best={id:pc.id,ci}}});
+    for(const pc of st.pieces){if(!onLv(pc.id))continue;G.get(pc.id).conns.forEach((c,ci)=>{const d=Math.hypot(sx(c.x)-px,sy(c.y)-py);if(d<bd){bd=d;best={id:pc.id,ci}}})}
     if(best)toggleMark(best.id,best.ci,ui.markK);else toast('Keine Gleisverbindung getroffen – näher an einen Stoß tippen');return}
-  if(ui.mode==='start'){snap();st.cursor={x:Math.round(wx/5)*5,y:Math.round(wy/5)*5,a:st.cursor.a,z:st.cursor.z};st.active={type:'cursor'};ui.sel=null;setStartMode(false);changed();return}
+  if(ui.mode==='start'){snap();st.cursor={x:Math.round(wx/5)*5,y:Math.round(wy/5)*5,a:st.cursor.a,z:ui.level==='all'?st.cursor.z:ui.level*CLEAR};st.active={type:'cursor'};ui.sel=null;setStartMode(false);changed();return}
   let best=null,bd=34;
-  for(const o of openC){const d=Math.hypot(sx(o.c.x)-px,sy(o.c.y)-py);if(d<bd){bd=d;best=o}}
+  for(const o of openC){if(!onLv(o.id))continue;const d=Math.hypot(sx(o.c.x)-px,sy(o.c.y)-py);if(d<bd){bd=d;best=o}}
   if(best){st.active={type:'conn',id:best.id,ci:best.ci};ui.sel=null;changed(false);return}
   let bp=null;bd=Math.max(16,14*view.s);
-  for(const pc of st.pieces){const g=G.get(pc.id);for(const p of g.paths)for(const q of p){const d=Math.hypot(sx(q.x)-px,sy(q.y)-py);if(d<bd){bd=d;bp=pc}}}
+  for(const pc of st.pieces){if(!onLv(pc.id))continue;const g=G.get(pc.id);for(const p of g.paths)for(const q of p){const d=Math.hypot(sx(q.x)-px,sy(q.y)-py);if(d<bd){bd=d;bp=pc}}}
   ui.sel=bp?bp.id:null;changed(false);
 }
 
 /* ---------- UI ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2200)}
-function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip,secs:ui.secs}}))}catch(e){}}
-function changed(doSave=true){if(doSave)save();renderCtx();updEdit();
+function save(){try{localStorage.setItem('nplan.v1',JSON.stringify({st,view:viewReady&&W>0?{s:view.s,ox:view.ox,oy:view.oy,w:W,h:H}:savedView,ui:{sys:ui.sys,dir:ui.dir,cont:ui.cont,tab:ui.tab,cust:ui.cust,clip:ui.clip,secs:ui.secs,level:ui.level}}))}catch(e){}}
+function changed(doSave=true){renderLevels();if(doSave)save();renderCtx();updEdit();
   if(SIM.on){if(!validTrail()&&!spawnTrain())setSim(false);renderSwitches()}
   draw();if(ui.view3)queue3()}
 function totals(){let len=0,mg=0;for(const g of G.values()){len+=g.p.t==='T'?g.p.L:g.p.t==='X'?g.p.L:g.len;mg=Math.max(mg,Math.abs(g.grade))}return{len,mg}}
@@ -939,6 +948,7 @@ function renderCtx(){
     el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
     ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
     <div class="stepper"><span>Niveau</span><button data-a="z-" aria-label="Strang absenken">−</button><output>${fz(pc.z0)}</output><button data-a="z+" aria-label="Strang anheben">+</button></div>
+    <div class="stepper"><span>Ebene</span><button data-a="l-" aria-label="Strang eine Ebene tiefer (−40 mm)">−</button><output>E${lvOf(pc.z0)}</output><button data-a="l+" aria-label="Strang eine Ebene höher (+40 mm)">+</button></div>
     ${p.t!=='S'?`<div class="seg" role="group" aria-label="Richtung"><button data-a="dl" aria-pressed="${pc.d===1}">◀ Links</button><button data-a="dr" aria-pressed="${pc.d===-1}">Rechts ▶</button></div>`:''}
     ${isTurnout(p)||p.t==='X'?'<button class="btn" data-a="flip" title="Gleis in Gegenrichtung einbauen">⇄ Umdrehen</button>':''}
     ${isTurnout(p)?'<button class="btn" data-a="swap" title="Hauptstrang und Abzweig tauschen">⑂ Abzweig tauschen</button>':''}
@@ -978,6 +988,8 @@ $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(!pc)return;const p=partOf(pc);
   if(a==='g-'||a==='g+'){snap();const g=Math.round((pc.rise/lenOf(p)*100+(a==='g+'?.5:-.5))*2)/2;pc.rise=+(g/100*lenOf(p)).toFixed(2);propagate(pc);changed()}
   if(a==='z-'||a==='z+'){snap();pc.z0+=a==='z+'?5:-5;propagate(pc);changed()}
+  if(a==='l-'||a==='l+'){snap();pc.z0=Math.round(pc.z0/CLEAR)*CLEAR+(a==='l+'?CLEAR:-CLEAR);propagate(pc);
+    if(ui.level!=='all')ui.level=lvOf(pc.z0);changed();toast(`Strang auf Ebene E${lvOf(pc.z0)} (${fz(pc.z0)})`)}
   if((a==='dl'&&pc.d!==1)||(a==='dr'&&pc.d!==-1))reorient(pc,-pc.d,null,a==='dl'?'Nach links gedreht':'Nach rechts gedreht');
   if(a==='flip'){const pm=p.t==='X'?{0:1,1:0,2:3,3:2}:{0:1,1:0};reorient(pc,p.t==='X'?pc.d:-pc.d,pm,'Umgedreht')}
   if(a==='swap')reorient(pc,pc.d,{1:2,2:1},'Abzweig getauscht');
@@ -1147,7 +1159,7 @@ function openCustom(focus){
 
 /* ---------- Ansicht umschalten ---------- */
 function setView(v3){ui.view3=v3;$('v2').setAttribute('aria-pressed',!v3);$('v3').setAttribute('aria-pressed',v3);
-  cv.hidden=v3;$('c3wrap').hidden=!v3;document.querySelector('.legend').hidden=v3||SIM.on;setStartMode(false);
+  cv.hidden=v3;$('c3wrap').hidden=!v3;$('lvBar').hidden=v3||$('lvBar').innerHTML==='';document.querySelector('.legend').hidden=v3||SIM.on;setStartMode(false);
   if(v3)load3D().then(()=>{if(!T3)init3D();size3();build3D();frame3IfNew();loop()}).catch(()=>{toast('3D konnte nicht geladen werden');setView(false)});
   else{draw();if(SIM.on&&SIM.play)simLoop2D()}
   placeSwitches()}
@@ -1216,6 +1228,27 @@ function build3D(){
   const R=Math.max(B.w,B.d);T3.sun.position.set(B.w*.2,R*1.2,-B.d*.4);T3.sun.target.position.set(B.w/2,0,B.d/2);
   const sc=T3.sun.shadow.camera;sc.left=-R*.8;sc.right=R*.8;sc.top=R*.8;sc.bottom=-R*.8;sc.near=10;sc.far=R*4;sc.updateProjectionMatrix();
 }
+
+/* ---------- Ebenen (je 40 mm lichte Höhe) ---------- */
+const lvOf=z=>Math.round(z/CLEAR);
+function pcLv(id){const g=G.get(id);return[lvOf(g.zmin),lvOf(g.zmax)]}
+function levelRange(){let lo=0,hi=0,any=false;for(const g of G.values()){const a=lvOf(g.zmin),b=lvOf(g.zmax);
+  if(!any){lo=a;hi=b;any=true}else{lo=Math.min(lo,a);hi=Math.max(hi,b)}}return[lo,hi]}
+const onLv=id=>{if(ui.level==='all'||!G.has(id))return true;const[a,b]=pcLv(id);return a<=ui.level&&ui.level<=b};
+let lvCount=1;
+function renderLevels(){const[lo,hi]=levelRange(),bar=$('lvBar'),n=hi-lo+1;
+  if(n>lvCount&&n>1&&st.pieces.length)toast(`Neue Ebene E${hi>0&&lvCount<n?hi:lo} – links am Plan zwischen den Ebenen wechseln`);
+  lvCount=n;
+  if(n<2){bar.hidden=true;ui.level='all';return}
+  if(ui.level!=='all'&&(ui.level<lo||ui.level>hi))ui.level='all';
+  let h=`<button data-lv="all" aria-pressed="${ui.level==='all'}" aria-label="Alle Ebenen">Alle</button>`;
+  for(let L=hi;L>=lo;L--)h+=`<button data-lv="${L}" aria-pressed="${ui.level===L}" aria-label="Ebene ${L}, ${L*CLEAR} mm"><b>E${L}</b><small>${L>0?'+':''}${L*CLEAR} mm</small></button>`;
+  bar.innerHTML=h;bar.hidden=ui.view3}
+$('lvBar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const v=b.dataset.lv;ui.level=v==='all'?'all':+v;
+  if(ui.sel&&!onLv(ui.sel))ui.sel=null;
+  if(st.active&&st.active.type==='conn'&&!onLv(st.active.id)){const o=openC.find(q=>onLv(q.id));st.active=o?{type:'conn',id:o.id,ci:o.ci}:{type:'cursor'}}
+  if(st.active&&st.active.type==='cursor'&&ui.level!=='all')st.cursor.z=ui.level*CLEAR;
+  renderLevels();changed(false);save()});
 
 /* ---------- Fahrsimulation ---------- */
 const CARS=[{len:76,kind:'loco'},{len:70,kind:'w',col:0x8b2e1f,c2:'#8b2e1f'},{len:70,kind:'w',col:0x2f5d8a,c2:'#2f5d8a'},{len:70,kind:'w',col:0x5f6b2f,c2:'#5f6b2f'}];
@@ -1357,7 +1390,7 @@ function init(){
   if(!loaded)loadSample();
   if(!SYS[ui.sys]||SYS[ui.sys].hide)ui.sys='minitrix';sel.value=ui.sys;
   setDir(ui.dir);
-  rebuild();renderPalette();renderCtx();updEdit();
+  rebuild();lvCount=(()=>{const[a,b]=levelRange();return b-a+1})();renderLevels();renderPalette();renderCtx();updEdit();
   new ResizeObserver(()=>resize()).observe($('stage'));resize();
   const startView=()=>{if(W<50||H<50){requestAnimationFrame(startView);return}
     if(sv){view.s=sv.s;view.ox=sv.ox+(W-sv.w)/2;view.oy=sv.oy+(H-sv.h)/2;draw()}else fit();
