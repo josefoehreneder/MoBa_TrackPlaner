@@ -63,7 +63,8 @@ select{background:var(--bg);border:1px solid var(--line);border-radius:8px;paddi
 .dock{background:var(--panel);border-top:1px solid var(--line);padding-bottom:4px}
 .row{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding-block:7px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .row::-webkit-scrollbar{display:none}
-#ctx{border-bottom:1px solid var(--line);min-height:52px}
+#ctx{border-bottom:1px solid var(--line);min-height:52px;flex-wrap:wrap;overflow:visible;row-gap:6px}
+#ctx>*{flex:none}
 .ctx-name{display:flex;flex-direction:column;min-width:0;flex:none;line-height:1.15}
 .ctx-name b{font-family:var(--f-display);font-weight:600;font-size:16px;white-space:nowrap}
 .ctx-name span{color:var(--muted);font-size:12px;white-space:nowrap}
@@ -151,7 +152,8 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
   .stepper output{min-width:54px}
   .stepper button{width:40px;height:40px}
   .ctx-name b{font-size:15px}
-  .ctx-name{max-width:42vw}
+  .ctx-name{max-width:100%}
+  #ctx .ctx-name:has(+ .stepper),#ctx .ctx-name:has(+ .btn){flex:1 1 100%}
   .ctx-name b,.ctx-name span{overflow:hidden;text-overflow:ellipsis}
   .legend{display:none}
   .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -162,7 +164,14 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
   .top{grid-column:1 / -1;padding-block:4px}
   .brand h1{display:inline}
   #stage{grid-column:1;grid-row:2}
-  .dock{grid-column:2;grid-row:2;border-top:0;border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+  .dock{grid-column:2;grid-row:2;border-top:0;border-left:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column;padding-bottom:max(8px,env(safe-area-inset-bottom,0px))}
+  .dock>*{flex:none}
+  #tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1 1 100%;overflow:visible}
+  #tabs button{padding:6px 4px}
+  .tools>.seg:last-child{flex:1 1 100%}
+  .tools>.seg:last-child button{flex:1}
+  #ctx .seg,#ctx .btn{flex:1 1 auto}
+  #ctx .stepper{flex:1 1 100%;justify-content:space-between}
   .row{flex-wrap:wrap;overflow:visible;padding-left:12px;padding-right:max(12px,env(safe-area-inset-right,0px))}
   #ctx{min-height:0}
   .ctx-name{max-width:100%;flex:1 1 100%}
@@ -170,7 +179,7 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
   .chip{width:auto;height:62px}
   .chip.wide{grid-column:span 2}
   .fab{right:10px}
-  .stepper span{display:none}
+  .stepper span{display:inline}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
