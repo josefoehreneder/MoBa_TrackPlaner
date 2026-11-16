@@ -346,28 +346,60 @@ const ax=o=>Object.assign(o,{approx:true});
 // Sondergleise (Analogbetrieb): Geometrie wie Grundgleis, plus Funktion
 // fn: feed=Anschlussgleis, iso=Trenngleis, unc=Entkupplungsgleis, contact=Schaltgleis, buffer=Prellbock, lx=Bahnübergang
 const SP=(fn,name,base,o={})=>Object.assign({},base,{id:fn+(o.v||'')+'-'+base.id,fn,name},o);
+// Artikelnummern: art = links bzw. einzige Nummer, artR = rechts, alt = weitere Ausführungen mit gleicher Geometrie
+const AR=(p,art,artR,alt)=>Object.assign(p,{art},artR?{artR}:{},alt?{alt}:{});
+// Ausgleichsgleis mit veränderlicher Länge
+const VAR=(id,vmin,vmax,name,art)=>({id,t:'S',L:vmax,vmin,vmax,vname:name,art});
 const SYS={
   minitrix:{name:'Minitrix',parts:[
-    S(312.6),S(104.2),S(76.3),S(54.2),S(50),S(33.6),S(27.9),S(17.5),
-    C(194.6,30),C(194.6,24),C(194.6,6),C(228.2,30),C(228.2,24),C(228.2,6),
-    C(261.8,30),C(261.8,15),C(261.8,7.5),C(295.4,30),C(295.4,15),C(295.4,7.5),
-    C(329,15),C(362.6,15),C(492.6,15),C(526.2,15),
-    Wt('W24',104.2,194.6,24,'Weiche 24°'),Wt('W15',112.6,362.6,15,'Weiche 15°'),
-    ax(W3('W3-15',112.6,362.6,15)),ax(Bw('BW30',194.6,228.2,30)),
-    X(104.2,30),X(129.8,15),DKW(129.8,15),
-    SP('feed','Anschlussgleis',S(104.2)),SP('feed','Anschlussgleis',C(194.6,30)),
-    SP('iso','Trenngleis',S(104.2)),SP('iso','Trenngleis',C(228.2,24)),
-    SP('unc','Entkupplungsgleis',S(104.2)),SP('buffer','Prellbock',S(50),{approx:true})]},
+    AR(S(312.6),'14902'),AR(S(104.2),'14904'),AR(S(76.3),'14905'),AR(S(54.2),'14906'),AR(S(50),'14907'),
+    AR(S(33.6),'14909'),AR(S(27.9),'14908'),AR(S(17.2),'14903'),VAR('V14975',86.5,120,'Vario-Gleis','14975'),
+    AR(C(194.6,30),'14912'),AR(C(194.6,24),'14914'),AR(C(194.6,6),'14916'),
+    AR(C(228.2,30),'14922'),AR(C(228.2,24),'14924'),AR(C(228.2,6),'14926'),
+    AR(C(261.8,30),'14910'),AR(C(261.8,15),'14911'),AR(C(261.8,7.5),'14919'),
+    AR(C(295.4,30),'14920'),AR(C(295.4,15),'14921'),AR(C(295.4,7.5),'14929'),
+    AR(C(329,15),'14917'),AR(C(362.6,15),'14927'),AR(C(492.6,15),'14918'),AR(C(526.2,15),'14928'),
+    AR(Wt('W24',104.2,194.6,24,'Weiche R1 24°'),'14951','14953'),
+    AR(Wt('W15',112.6,362.6,15,'Weiche R4 15°'),'14954','14955','auch 14938/14939'),
+    AR(ax(Bw('BW30',194.6,228.2,30)),'14956','14957'),
+    AR(ax(Bw('BW3-4',329,362.6,30)),'14947','14948','polarisiert'),
+    AR(X(104.2,30),'14958'),AR(X(112.6,15),'14973'),AR(DKW(112.6,15),'14960',null,'elektrisch 14968'),
+    AR(SP('feed','Anschlussgleis',C(194.6,30)),'14972'),
+    AR(SP('misc','Gleis mit Kondensator',S(104.2)),'14990'),
+    AR(SP('iso','Trenngleis',S(50)),'14982'),AR(SP('iso','Trenngleis',C(194.6,30),{approx:true}),'14984'),AR(SP('iso','Trenngleis',C(228.2,30),{approx:true}),'14986'),
+    AR(SP('unc','Entkupplungsgleis elektrisch',S(104.2),{approx:true,sub:'elektr.'}),'14969'),
+    AR(SP('contact','Schaltgleis',S(50)),'14979'),AR(SP('contact','Schaltgleis mit Magnetschalter',S(104.2),{v:'m',approx:true,sub:'Magnet'}),'14980'),
+    AR(SP('buffer','Prellbock',S(50)),'14991'),AR(SP('buffer','Kastenprellbock',S(50),{v:'k',approx:true,sub:'Kasten'}),'14976')]},
   fleischmann:{name:'Fleischmann piccolo',parts:[
-    S(222),S(111),S(57.5),S(55.5),S(27.75),
-    C(192,45),C(192,15),C(192,7.5),C(225.6,45),C(225.6,15),C(225.6,7.5),
-    C(396.4,30),C(396.4,15),C(430,30),C(430,15),
-    Wt('W15',111,430,15,'Weiche 15°'),W3('W3-15',111,430,15),Bw('BW45',192,225.6,45),
-    X(115,30),X(111,15),DKW(111,15),
-    SP('feed','Anschlussgleis',S(111)),
-    SP('unc','Entkupplungsgleis elektrisch',S(111),{sub:'elektr.'}),SP('unc','Entkupplungsgleis Hand',S(111),{v:'h',sub:'Hand'}),
-    SP('contact','Schaltgleis',S(55.5)),SP('buffer','Prellbock',S(57.5)),
-    SP('lx','Bahnübergang',S(55.5)),SP('lx','Bahnübergang mit Unterbrecher',S(55.5),{v:'u',sub:'Unterbr.'})]},
+    AR(S(222),'9100'),AR(S(111),'9101'),AR(S(57.5),'9102'),AR(S(55.5),'9103'),AR(S(27.75),'9104'),VAR('V9110',83,111,'Ausgleichsgleis','9110'),
+    AR(C(192,45),'9120'),AR(C(192,15),'9122'),AR(C(192,7.5),'9123'),
+    AR(C(225.6,45),'9125'),AR(C(225.6,15),'9127'),AR(C(225.6,7.5),'9128'),
+    AR(C(396.4,30),'9130'),AR(C(396.4,15),'9131'),AR(C(430,30),'9135'),AR(C(430,15),'9136'),
+    AR(Wt('W15',111,430,15,'Weiche 15°'),'9170','9171','leitendes Herzstück 9178/9179, mit Antrieb 9180/9181'),
+    AR(W3('W3-15',111,430,15),'9157',null,'elektrisch 9158'),
+    AR(Bw('BW45',192,225.6,45),'9174','9175','auch 9168/9169, elektrisch 9176/9177 und 9182/9183'),
+    AR(X(115,30),'9161'),AR(X(111,15),'9162','9163'),AR(DKW(111,15),'9184','9185','elektrisch 9186/9187'),
+    AR(SP('feed','Anschlussgleis',S(111)),'9108'),
+    AR(SP('unc','Entkupplungsgleis elektrisch',S(111),{sub:'elektr.'}),'9112'),AR(SP('unc','Entkupplungsgleis Hand',S(111),{v:'h',sub:'Hand'}),'9114'),
+    AR(SP('contact','Schaltgleis',S(55.5)),'9115'),AR(SP('buffer','Prellbock',S(55.5)),'9116'),
+    AR(SP('lx','Bahnübergang',S(55.5)),'9499'),AR(SP('lx','Bahnübergang mit Unterbrecher',S(55.5),{v:'u',sub:'Unterbr.'}),'9199'),
+    AR(SP('misc','Übergangsgleis zu Arnold',S(111),{sub:'Arnold'}),'9117')]},
+  flnb:{name:'Fleischmann ohne Bettung',parts:[
+    AR(S(312.6),'22202'),AR(S(104.2),'22203'),AR(S(54.2),'22204'),AR(S(50),'22205'),AR(S(33.6),'22206'),AR(S(17.2),'22207'),
+    AR(C(194.6,30),'22221'),AR(C(194.6,24),'22231'),AR(C(194.6,6),'22232'),
+    AR(C(228.2,30),'22222'),AR(C(228.2,24),'22233'),AR(C(228.2,6),'22234'),
+    AR(C(261.8,30),'22223'),AR(C(295.4,30),'22224'),AR(C(295.4,15),'22235'),
+    AR(C(329,15),'22225'),AR(C(362.6,15),'22226'),AR(C(480,15),'22227'),AR(ax(C(765,12)),'22228'),
+    AR(Wt('W24',104.2,194.6,24,'Weiche 24°'),'22253','22255','elektrisch 22249/22251'),
+    AR(Wt('W15',112.6,362.6,15,'Weiche 15°'),'22265','22267','elektrisch 22261/22263'),
+    AR(ax(Wt('W10',155,765,10,'Weiche 10°')),'22301','22303'),
+    AR(W3('W3-15',112.6,362.6,15),'22247',null,'elektrisch'),
+    AR(ax(Bw('BW30',194.6,228.2,30)),'22273','22275','elektrisch'),
+    AR(X(104.2,30),'22244'),AR(X(112.6,15),'22245'),AR(DKW(112.6,15),'22246',null,'elektrisch'),
+    AR(SP('feed','Anschlussgleis',S(104.2),{approx:true}),'22220'),
+    AR(SP('unc','Entkupplungsgleis elektrisch',S(104.2),{sub:'elektr.'}),'22212'),
+    AR(SP('misc','Aufgleisschiene',S(104.2),{sub:'Aufgleis.'}),'22210'),
+    AR(SP('buffer','Prellbock (Bausatz)',S(17.2),{approx:true,sub:'Bausatz'}),'22216')]},
   peco:{name:'Peco Setrack',parts:[
     S(174),S(87),S(58),
     C(228,45),C(228,22.5),C(228,11.25),C(263.5,45),C(263.5,22.5),
@@ -379,12 +411,20 @@ const SYS={
     C(216,45),C(249,45),C(282,45),C(315,45),C(315,15),C(348,30),C(381,15),C(718,15),
     Wt('W4',124,481,15,'Weiche Nr. 4'),Wt('W6',186,718,15,'Weiche Nr. 6'),Bw('BW15',481,718,15),Bw('BW45',282,315,45),X(124,15),X(124,90)]},
 };
+// Radius-Bezeichnungen der Hersteller
+const RN={minitrix:{194.6:'R1',228.2:'R2',261.8:'R2a',295.4:'R2b',329:'R3',362.6:'R4',492.6:'R5',526.2:'R6'},
+  fleischmann:{192:'R1',225.6:'R2',396.4:'R3',430:'R4'},
+  flnb:{194.6:'R1',228.2:'R2',261.8:'R3',295.4:'R3a',329:'R4',362.6:'R5',480:'R6',765:'R7'},
+  peco:{228:'R1',263.5:'R2',298.5:'R3',333.4:'R4'}};
+for(const k in RN)for(const q of SYS[k].parts)if(q.t==='C'&&RN[k][q.R])q.rn=RN[k][q.R];
 // frühere Teile, die es so nicht mehr gibt (ausgeblendet, für alte Pläne)
 const LEGACY={
-  minitrix:[S(54.2),C(194.6,15),C(228.2,15),C(329,30),X(104.2,30)],
-  fleischmann:[S(104.2),C(192,30),C(430,15),Bw('BW30',192,225.6,30),X(111,15)],
+  minitrix:[S(17.5),C(194.6,15),C(228.2,15),C(329,30),W3('W3-15',112.6,362.6,15),X(129.8,15),DKW(129.8,15),
+    SP('feed','Anschlussgleis',S(104.2)),SP('iso','Trenngleis',S(104.2)),SP('iso','Trenngleis',C(228.2,24))],
+  fleischmann:[S(104.2),C(192,30),Bw('BW30',192,225.6,30),SP('buffer','Prellbock',S(57.5))],
   peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)]};
 for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q.id))SYS[k].parts.push(Object.assign(q,{hide:true}));
+const artOf=(pc,p)=>p.art?(p.artR&&pc.d===-1?p.artR:p.art):'';
 
 /* ---------- State ---------- */
 let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
@@ -403,14 +443,14 @@ function partOf(pc){return pc.cu||SYS[pc.sys].parts.find(p=>p.id===pc.pid)}
 function lenOf(p){return p.t==='C'?p.R*p.A*DEG:p.t==='B'?(p.L0||0)+p.R2*p.A*DEG:p.L}
 const flat=p=>p.t==='T'||p.t==='X'||p.t==='B';
 const isTurnout=p=>p.t==='T'||p.t==='B';
-function pname(p){if(p.flex)return p.t==='C'?`Flexgleis gebogen R${fmt(p.R,0)} · ${fmt(p.A)}°`:`Flexgleis ${fmt(p.L)} mm`;if(p.fn)return p.t==='C'?`${p.name} R${fmt(p.R)} · ${fmt(p.A)}°`:`${p.name} ${fmt(p.L)} mm`;switch(p.t){
+function pname(p){if(p.vname)return `${p.vname} ${fmt(p.L)} mm`;if(p.flex)return p.t==='C'?`Flexgleis gebogen R${fmt(p.R,0)} · ${fmt(p.A)}°`:`Flexgleis ${fmt(p.L)} mm`;if(p.fn)return p.t==='C'?`${p.name} R${fmt(p.R)} · ${fmt(p.A)}°`:`${p.name} ${fmt(p.L)} mm`;switch(p.t){
   case'S':return p.fill?`Ausgleichsstück ${fmt(p.L)} mm`:`Gerade ${fmt(p.L)} mm`;
-  case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen R${fmt(p.R)} · ${fmt(p.A)}°`;
-  case'T':{const n=p.three?'Dreiwegweiche':(p.name||'Weiche');return `${n.includes('°')?n:n+' '+fmt(p.A)+'°'} · R${fmt(p.R,0)}`}
+  case'C':return p.fill?`Ausgleichsbogen R${fmt(p.R)} · ${fmt(p.A)}°`:`Bogen ${p.rn?p.rn+' ('+fmt(p.R)+' mm)':'R'+fmt(p.R)} · ${fmt(p.A)}°`;
+  case'T':{const n=p.three?'Dreiwegweiche':(p.name||'Weiche');return `${n.includes('°')?n:n+' '+fmt(p.A)+'°'} · R${fmt(p.R)}`}
   case'X':return p.dkw?`Doppelkreuzungsweiche ${fmt(p.A)}°`:`Kreuzung ${fmt(p.A)}° · ${fmt(p.L)} mm`;
   case'B':return `Bogenweiche R${fmt(p.R1,0)}/R${fmt(p.R2,0)} · ${fmt(p.A)}°`;}}
-const FNS={feed:'Anschluss',iso:'Trenngleis',unc:'Entkuppl.',contact:'Schaltgl.',buffer:'Prellbock',lx:'Bahnübg.'};
-function chipText(p){if(p.fn)return[FNS[p.fn],p.sub||(p.t==='C'?'R'+fmt(p.R,0)+' '+fmt(p.A)+'°':fmt(p.L)+' mm')];switch(p.t){
+const FNS={feed:'Anschluss',iso:'Trenngleis',unc:'Entkuppl.',contact:'Schaltgl.',buffer:'Prellbock',lx:'Bahnübg.',misc:'Sondergl.'};
+function chipText(p){if(p.vmin)return['Ausgleich',fmt(p.vmin)+'–'+fmt(p.vmax)];if(p.t==='C'&&p.rn&&!p.fn)return[p.rn,fmt(p.R,0)+' · '+fmt(p.A)+'°'];if(p.fn)return[FNS[p.fn],p.sub||(p.t==='C'?'R'+fmt(p.R,0)+' '+fmt(p.A)+'°':fmt(p.L)+' mm')];switch(p.t){
   case'S':return [fmt(p.L),'Gerade'];
   case'C':return ['R'+fmt(p.R,0),fmt(p.A)+'°'];
   case'T':return [p.three?'Dreiweg':p.name&&p.name.includes('Nr')?p.name.replace('Weiche ',''):'Weiche',fmt(p.A)+'° R'+fmt(p.R,0)];
@@ -977,7 +1017,7 @@ function renderCtx(){
   if(ui.mode==='move'){el.innerHTML=`<div class="ctx-name"><b>Gleisplan verschieben</b><span>Mit einem Finger ziehen, mit zwei zoomen</span></div>
     <button class="btn" data-a="mvC">Zentrieren</button><button class="btn" data-a="mvL" aria-label="90° gegen den Uhrzeigersinn">↺ 90°</button><button class="btn" data-a="mvR" aria-label="90° im Uhrzeigersinn">↻ 90°</button><button class="btn primary" data-a="mvX">Fertig</button>`;return}
   if(pc){const g=G.get(pc.id),p=g.p,gr=g.grade,cls=Math.abs(gr)>4?'bad':Math.abs(gr)>3?'warn':'';
-    el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
+    el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${p.art?SYS[pc.sys].name+' · Art. '+artOf(pc,p):pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
     ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
     <div class="stepper"><span>Niveau</span><button data-a="z-" aria-label="Strang absenken">−</button><output>${fz(pc.z0)}</output><button data-a="z+" aria-label="Strang anheben">+</button></div>
     <div class="stepper"><span>Ebene</span><button data-a="l-" aria-label="Strang eine Ebene tiefer (−40 mm)">−</button><output>E${lvOf(pc.z0)}</output><button data-a="l+" aria-label="Strang eine Ebene höher (+40 mm)">+</button></div>
@@ -1070,6 +1110,7 @@ $('palette').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!
   if(b.dataset.m){setMarkMode(b.dataset.m);return}
   if(b.dataset.secs){ui.secs=!ui.secs;renderPalette();changed(false);save();return}
   if(b.dataset.u==='H'){openHelix();return}
+  {const vp=SYS[ui.sys].parts.find(q=>q.id===b.dataset.id);if(vp&&vp.vmin){openVar(vp);return}}
   if(b.dataset.u)openCustom(b.dataset.u);else usePart(ui.sys,b.dataset.id,null)});
 function setMarkMode(k){if(ui.mode==='mark'&&ui.markK===k){ui.mode=null;ui.markK=null}else{if(ui.mode==='start')setStartMode(false);ui.mode='mark';ui.markK=k;ui.ins=null}
   const hint=$('modeHint');hint.hidden=ui.mode!=='mark';
@@ -1123,13 +1164,13 @@ $('sheetClose').onclick=()=>$('sheet').hidden=true;
 $('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')$('sheet').hidden=true});
 function bom(){const m=new Map();
   const flexTot={};
-  for(const pc of st.pieces){const p=partOf(pc),src=p.flex?'Flexgleis zuschneiden':pc.cu?'Eigenes Maß':SYS[pc.sys].name;
+  for(const pc of st.pieces){const p=partOf(pc),src=p.flex?'Flexgleis zuschneiden':p.art?SYS[pc.sys].name:pc.cu?'Eigenes Maß':SYS[pc.sys].name;
     if(p.flex)flexTot[pc.sys]=(flexTot[pc.sys]||0)+lenOf(p);
-    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(p.flex?'':pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
-    const k=src+'|'+n;m.set(k,(m.get(k)||0)+1)}
+    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(p.flex||p.art?'':pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+    const art=artOf(pc,p),k=src+'|'+(art?art+' · ':'')+n+'|'+(p.alt||'');m.set(k,(m.get(k)||0)+1)}
   let i1=0,fd=0;for(const mk of st.marks||[]){if(mk.k==='iso1')i1+=1;if(mk.k==='iso2')i1+=2;if(mk.k==='feed')fd++}
-  const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n]=k.split('|');return{s,n,v}});
-  for(const k in flexTot){const L=FLEXLEN[k]||730;rows.push({s:SYS[k]?SYS[k].name:k,n:`Flexgleis ${L} mm (für ${fmt(flexTot[k]/10)} cm Verbindungen)`,v:Math.ceil(flexTot[k]/L)})}
+  const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n,note]=k.split('|');return{s,n,note,v}});
+  for(const k in flexTot){const L=FLEXLEN[k]||730;rows.push({s:SYS[k]?SYS[k].name:k,n:`${FLEXART[k]?FLEXART[k]+' · ':''}Flexgleis ${L} mm (für ${fmt(flexTot[k]/10)} cm Verbindungen)`,v:Math.ceil(flexTot[k]/L)})}
   if(i1)rows.push({s:'Zubehör',n:'Isolierschienenverbinder',v:i1});
   if(fd)rows.push({s:'Zubehör',n:'Einspeisung (Anschlussklemme / Kabel)',v:fd});
   return rows}
@@ -1139,8 +1180,8 @@ $('menuBtn').onclick=()=>{
   <h3>Projekt</h3>
   <div class="acts" style="margin-top:0;align-items:center"><b style="font-family:var(--f-display);font-size:17px">${esc(proj.name)}</b><button class="btn" id="goProj">Projekte verwalten</button></div>
   <h3>Stückliste</h3>
-  ${rows.length?`<table><thead><tr><th>System</th><th>Gleis</th><th style="text-align:right">Stk.</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.s}</td><td>${r.n}</td><td class="n">${r.v}</td></tr>`).join('')}</tbody></table>
-  <p>${st.pieces.length} Teile, ${fmt(t.len/1000,2)} m Gleis. Weichen „links“ zweigen in Fahrtrichtung nach links ab.</p>`:'<p>Noch keine Gleise gelegt.</p>'}
+  ${rows.length?`<table><thead><tr><th>System</th><th>Gleis</th><th style="text-align:right">Stk.</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.s}</td><td>${r.n}${r.note?`<br><small style="color:var(--muted)">${r.note}</small>`:''}</td><td class="n">${r.v}</td></tr>`).join('')}</tbody></table>
+  <p>${st.pieces.length} Teile, ${fmt(t.len/1000,2)} m Gleis. Weichen „links“ zweigen in Fahrtrichtung nach links ab. Die Nummer vor dem Namen ist die Artikelnummer des Herstellers.</p>`:'<p>Noch keine Gleise gelegt.</p>'}
   <h3>Einstellungen</h3>
   <div class="acts" style="margin-top:0"><button class="btn" id="cont" aria-pressed="${ui.cont}">Steigung automatisch übernehmen</button></div>
   <p>Ist das an, setzen neue Gleise die Steigung des vorherigen Gleises fort. So entstehen Rampen in einem Zug.</p>
@@ -1159,7 +1200,7 @@ $('menuBtn').onclick=()=>{
    <div class="rule"><b>Ein&shy;speisung</b><span>Jeder durch Trennstellen abgeteilte Abschnitt braucht eine eigene Einspeisung. Bei langen Strecken zusätzlich etwa alle 1–2 m einspeisen. „Abschnitte anzeigen“ im Reiter Analog färbt die Stromabschnitte ein.</span></div>
    <div class="rule"><b>33,6 mm</b><span>Gleisabstand bei Parallelgleisen (Minitrix und Fleischmann 33,6 mm, Peco 35 mm).</span></div>
   </div>
-  <p>Gleismaße sind Katalogwerte, gerundet. Teile mit „≈“ haben angenäherte Maße (Minitrix-Dreiwegweiche und -Bogenweiche, Peco-Bogenweiche und -Kreuzung). Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
+  <p>Gleismaße sind Katalogwerte, gerundet. Teile mit „≈“ haben angenäherte Maße, weil die Hersteller nicht alle Maße angeben (z. B. Bogenweichen, schlanke Weiche 10°, R7, einige Sondergleise). Vor dem Kauf die genaue Geometrie beim Hersteller prüfen.</p>
   <div id="pwaSlot"></div>
   <h3>Speichern & Teilen</h3>
   <p>Der Plan wird automatisch im Projekt „${esc(proj.name)}“ gespeichert. Zum Sichern oder Weitergeben den Plan als Text kopieren.</p>
@@ -1279,7 +1320,7 @@ function build3D(){
 }
 
 /* ---------- Zwei offene Enden verbinden (Flexgleis: Bogen – Gerade – Bogen) ---------- */
-const FLEXLEN={minitrix:730,fleischmann:777,peco:914};
+const FLEXLEN={minitrix:730,fleischmann:777,flnb:730,peco:914},FLEXART={minitrix:'14901',fleischmann:'9106',flnb:'22200'};
 function dubins(p0,t0,p1,t1,R,s1,s2){const n=t=>({x:-Math.sin(t),y:Math.cos(t)}),n0=n(t0),n1=n(t1);
   const c1={x:p0.x+s1*R*n0.x,y:p0.y+s1*R*n0.y},c2={x:p1.x+s2*R*n1.x,y:p1.y+s2*R*n1.y};
   const dx=c2.x-c1.x,dy=c2.y-c1.y,D=Math.hypot(dx,dy),al=Math.atan2(dy,dx);let phi;
@@ -1547,6 +1588,14 @@ function setMoveMode(on){if(on){if(ui.view3)setView(false);if(ui.mode==='start')
   ui.mode=on?'move':null;const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Gleisplan mit dem Finger verschieben · ✕ hier fertig';renderCtx();draw()}
 
 /* ---------- Gleisspindel ---------- */
+function openVar(vp){const v0=ui.varL&&ui.varL[vp.id]||vp.vmax;
+  openSheet(vp.vname,`<p>${SYS[ui.sys].name} ${vp.art}: Länge zwischen ${fmt(vp.vmin)} und ${fmt(vp.vmax)} mm einstellbar.</p>
+   <div class="fields"><label class="field">Länge (mm)<input id="vaL" type="number" inputmode="decimal" min="${vp.vmin}" max="${vp.vmax}" step="0.5" value="${v0}"></label></div>
+   <input id="vaR" type="range" min="${vp.vmin}" max="${vp.vmax}" step="0.5" value="${v0}" style="width:100%;accent-color:var(--accent);margin-top:10px" aria-label="Länge">
+   <div class="acts"><button class="btn primary" id="vaGo">Gleis legen</button></div>`,()=>{
+    $('vaR').oninput=()=>{$('vaL').value=$('vaR').value};$('vaL').oninput=()=>{$('vaR').value=$('vaL').value};
+    $('vaGo').onclick=()=>{const L=Math.max(vp.vmin,Math.min(vp.vmax,parseFloat($('vaL').value)||vp.vmax));ui.varL=ui.varL||{};ui.varL[vp.id]=L;$('sheet').hidden=true;
+      usePart(ui.sys,null,{id:'cV'+vp.id,t:'S',L,vname:vp.vname,art:vp.art})}})}
 function openHelix(){const radii=[...new Set(SYS[ui.sys].parts.filter(q=>q.t==='C'&&!q.hide&&!q.fn).map(q=>q.R))].sort((a,b)=>a-b);
   const hc=ui.helix||(ui.helix={R:radii[Math.min(1,radii.length-1)],n:2,h:50});if(!radii.includes(hc.R))hc.R=radii[Math.min(1,radii.length-1)];
   openSheet('Gleisspindel',`<p>Wendel aus ${SYS[ui.sys].name}-Bögen, die mit jeder Runde um die eingestellte Höhe steigt – ${ui.dir===1?'links':'rechts'} herum (mit L/R umstellen). Sie beginnt am gelben Anschluss; das obere Ende bleibt offen zum Weiterbauen.</p>
