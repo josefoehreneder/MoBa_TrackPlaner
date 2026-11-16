@@ -884,6 +884,8 @@ function draw(){
     ctx.save();ctx.translate(x,y);ctx.rotate(PI/4);ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=2.5;ctx.fillRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.strokeRect(-r/1.4,-r/1.4,r*1.4,r*1.4);ctx.restore();
     pillText(x,y-24,'hier einfügen',COL.ink,COL.bg)}}
   // offene Anschlüsse
+  if(ui.pendJoin)for(const e of[ui.pendJoin.A,ui.pendJoin.B]){const g=G.get(e.id);if(!g)continue;const c=g.conns[e.ci];
+    ctx.fillStyle=COL.accent;ctx.strokeStyle=COL.ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx(c.x),sy(c.y),12,0,TAU);ctx.fill();ctx.stroke()}
   const joinM=ui.mode==='join';
   for(const o of openC){const isA=st.active&&st.active.type==='conn'&&st.active.id===o.id&&st.active.ci===o.ci;if((isA&&!joinM)||(!onLv(o.id)&&!joinM))continue;
     const sel=joinM&&ui.joinA&&ui.joinA.id===o.id&&ui.joinA.ci===o.ci,r=joinM?(sel?13:9):6;
@@ -976,6 +978,8 @@ function changed(doSave=true){renderLevels();if(doSave)save();renderCtx();updEdi
 function totals(){let len=0,mg=0;for(const g of G.values()){len+=g.p.t==='T'?g.p.L:g.p.t==='X'?g.p.L:g.len;mg=Math.max(mg,Math.abs(g.grade))}return{len,mg}}
 function renderCtx(){
   const el=$('ctx'),pc=ui.sel&&byId(ui.sel);
+  if(ui.pendJoin){el.innerHTML=`<div class="ctx-name"><b>Keine passenden Katalog-Gleise</b><span>Die Enden lassen sich mit ${SYS[ui.sys].name}-Gleisen nicht exakt verbinden</span></div>
+    <button class="btn primary" data-a="jflex">Mit Flexgleis verbinden</button><button class="btn" data-a="jno">Abbrechen</button>`;return}
   if(ui.mode==='move'){el.innerHTML=`<div class="ctx-name"><b>Gleisplan verschieben</b><span>Mit einem Finger ziehen, mit zwei zoomen</span></div>
     <button class="btn" data-a="mvC">Zentrieren</button><button class="btn" data-a="mvL" aria-label="90° gegen den Uhrzeigersinn">↺ 90°</button><button class="btn" data-a="mvR" aria-label="90° im Uhrzeigersinn">↻ 90°</button><button class="btn primary" data-a="mvX">Fertig</button>`;return}
   if(pc){const g=G.get(pc.id),p=g.p,gr=g.grade,cls=Math.abs(gr)>4?'bad':Math.abs(gr)>3?'warn':'';
@@ -1010,11 +1014,13 @@ function renderCtx(){
       !conflicts.length&&!jumps.length&&!AN.rev.some(r=>!r.ok)&&!unfed&&st.pieces.length?'<span class="pill ok">Plan ok</span>':''].join(' ');
     el.innerHTML=`<div class="stat"><span><b>${st.pieces.length}</b> Gleise</span><span><b>${fmt(t.len/1000,2)}</b> m</span><span>max. <b>${fmt(t.mg)}</b> %</span>${bridges?`<span><b>${bridges}</b> Überführung${bridges>1?'en':''}</span>`:''}${showFeed&&AN.secs>1?`<span><b>${AN.secs}</b> Abschnitte</span>`:''}</div>${warn}
     ${st.pieces.length?'<button class="btn" data-a="mv">✥ Verschieben</button>':''}
+    ${ui.lastJoin&&undoStack.length===ui.lastJoin.n?'<button class="btn" data-a="jflex">Lieber Flexgleis</button>':''}
     ${st.active?'':'<span style="color:var(--muted);font-size:12.5px;white-space:nowrap">Gelben Anschluss antippen, dann Gleis wählen</span>'}`;
   }
 }
 $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a,pc=ui.sel&&byId(ui.sel);
   if(a==='x'){ui.sel=null;changed(false);return}
+  if(a==='jflex'){useFlexForJoin();return}if(a==='jno'){ui.pendJoin=null;changed(false);return}
   if(a==='mv'){setMoveMode(true);return}if(a==='mvX'){setMoveMode(false);return}
   if(a==='mvC'){centerPlan();return}if(a==='mvL'){rotatePlan(-90);return}if(a==='mvR'){rotatePlan(90);return}
   if(a==='icancel'){ui.ins=null;changed(false);return}
@@ -1291,7 +1297,84 @@ function dubins(p0,t0,p1,t1,R,s1,s2){const n=t=>({x:-Math.sin(t),y:Math.cos(t)})
   const L=(b.x-a.x)*Math.cos(phi)+(b.y-a.y)*Math.sin(phi);if(L<-0.01)return null;
   const md=x=>{x%=TAU;if(x<0)x+=TAU;if(x>TAU-1e-7)x=0;return x};
   const d1=md(s1*(phi-t0)),d2=md(s2*(t1-phi));return{R,s1,s2,d1,d2,L:Math.max(0,L),turn:d1+d2,len:R*(d1+d2)+Math.max(0,L)}}
+/* ---------- Verbinden mit Katalog-Gleisen ---------- */
+function catalogKit(sys){
+  const parts=SYS[sys].parts.filter(q=>!q.hide&&!q.fn);
+  const str=parts.filter(q=>q.t==='S'&&!q.vmin).map(q=>({L:q.L,id:q.id})).sort((a,b)=>b.L-a.L);
+  const vr=parts.find(q=>q.vmin);
+  const small=[{sum:0,ids:[]}];
+  const rec=(start,sum,ids,depth)=>{for(let i=start;i<str.length;i++){const s2=sum+str[i].L,ids2=[...ids,str[i].id];small.push({sum:s2,ids:ids2});if(depth<4)rec(i,s2,ids2,depth+1)}};
+  rec(0,0,[],1);small.sort((a,b)=>a.sum-b.sum||a.ids.length-b.ids.length);
+  const byR={};for(const q of parts.filter(q=>q.t==='C'))(byR[q.R]=byR[q.R]||[]).push(q);
+  const angs={},keys={};
+  for(const Rr in byR){const m=new Map([[0,[]]]);let fr=[0];
+    for(let k=0;k<30&&fr.length;k++){const nf=[];for(const a of fr)for(const c of byR[Rr]){const b=Math.round((a+c.A)*100)/100;if(b>360.001||m.has(b))continue;m.set(b,[...m.get(a),c.id]);nf.push(b)}fr=nf}
+    angs[Rr]=m;keys[Rr]=[...m.keys()].sort((a,b)=>a-b)}
+  return{sys,str,small,vr,angs,keys}}
+function straightFit(kit,L,tol){
+  if(L<-tol)return null;if(Math.abs(L)<=tol)return{ids:[],err:L,n:0};if(!kit.str.length)return null;
+  const big=kit.str[0];let best=null;const sm=kit.small;
+  for(let nb=0;nb<=Math.min(20,Math.floor((L+tol)/big.L));nb++){const r=L-nb*big.L;
+    let lo=0,hi=sm.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(sm[mid].sum<r)lo=mid+1;else hi=mid}
+    for(let i=Math.max(0,lo-3);i<=Math.min(sm.length-1,lo+3);i++){const e=r-sm[i].sum;if(Math.abs(e)<=tol){const n=nb+sm[i].ids.length;
+      if(!best||n<best.n||(n===best.n&&Math.abs(e)<Math.abs(best.err)))best={ids:[...Array(nb).fill(big.id),...sm[i].ids],err:e,n}}}}
+  if(best||!kit.vr)return best;
+  for(let nb=0;nb<=Math.min(20,Math.floor(L/big.L));nb++){const r=L-nb*big.L;
+    for(const c of sm){const v=r-c.sum;if(v<kit.vr.vmin-1e-9)break;if(v<=kit.vr.vmax){const n=nb+c.ids.length+1;
+      if(!best||n<best.n)best={ids:[...Array(nb).fill(big.id),...c.ids],err:0,n,varL:Math.round(v*10)/10}}}}
+  return best}
+const arcDisp=(Rr,sg,th,a)=>({x:sg*Rr*(-Math.sin(th)+Math.sin(th+sg*a)),y:sg*Rr*(Math.cos(th)-Math.cos(th+sg*a))});
+function nearAngle(kit,Rr,reqd,atol){const ks=kit.keys[Rr];let best=null;
+  for(const t of[reqd,reqd-360,reqd+360]){let lo=0,hi=ks.length-1;while(lo<hi){const m=(lo+hi)>>1;if(ks[m]<t)lo=m+1;else hi=m}
+    for(const i of[lo-1,lo]){if(i<0||i>=ks.length)continue;const d=Math.abs(ks[i]-t);if(d<=atol&&(!best||d<best.d))best={a:ks[i],d}}}
+  return best}
+function findCatalogJoin(A,B,sys){
+  const ca=G.get(A.id).conns[A.ci],cb=G.get(B.id).conns[B.ci],kit=catalogKit(sys),th0=ca.a,th1=wrap(cb.a+PI);
+  const tol=.7,atol=.6,Rs=Object.keys(kit.angs).map(Number),md=x=>{x%=TAU;if(x<0)x+=TAU;return x};let best=null;
+  const take=c=>{c.sc=c.n+c.turn*2+Math.hypot(c.e1,c.e2)*1.5+(c.varL?.5:0);if(c.n<=30&&(!best||c.sc<best.sc))best=c};
+  // Bogen – Gerade – Bogen (Bögen dürfen fehlen)
+  for(const R1 of Rs)for(const s1 of[1,-1])for(const[a1d,ids1]of kit.angs[R1]){if(s1<0&&!a1d)continue;
+    const a1=a1d*DEG,ph=th0+s1*a1,d1=arcDisp(R1,s1,th0,a1),qx=ca.x+d1.x,qy=ca.y+d1.y;
+    for(const R2 of Rs)for(const s2 of[1,-1]){const na=nearAngle(kit,R2,md(s2*(th1-ph))/DEG,atol);if(!na||(s2<0&&!na.a))continue;
+      const a2=na.a*DEG,d2=arcDisp(R2,s2,ph,a2),rx=cb.x-qx-d2.x,ry=cb.y-qy-d2.y;
+      const L=rx*Math.cos(ph)+ry*Math.sin(ph),perp=-rx*Math.sin(ph)+ry*Math.cos(ph);if(Math.abs(perp)>tol||L<-tol)continue;
+      const sf=straightFit(kit,L,tol);if(!sf)continue;
+      const ids2=kit.angs[R2].get(na.a);
+      take({seq:[...ids1.map(id=>({id,d:s1})),...sf.ids.map(id=>({id,d:1})),...(sf.varL?[{v:sf.varL}]:[]),...ids2.map(id=>({id,d:s2}))],
+        n:ids1.length+sf.n+ids2.length,turn:a1+a2,e1:perp,e2:sf.err,varL:sf.varL})}}
+  // Gerade – Bogen – Gerade
+  for(const Rr of Rs)for(const sg of[1,-1]){const na=nearAngle(kit,Rr,md(sg*(th1-th0))/DEG,atol);if(!na||!na.a||na.a>=359)continue;
+    const a=na.a*DEG,d=arcDisp(Rr,sg,th0,a),u0x=Math.cos(th0),u0y=Math.sin(th0),u1x=Math.cos(th0+sg*a),u1y=Math.sin(th0+sg*a);
+    const det=u0x*u1y-u0y*u1x;if(Math.abs(det)<.05)continue;const rx=cb.x-ca.x-d.x,ry=cb.y-ca.y-d.y;
+    const L0=(rx*u1y-ry*u1x)/det,L1=(u0x*ry-u0y*rx)/det;const f0=straightFit(kit,L0,.45),f1=f0&&straightFit(kit,L1,.45);if(!f0||!f1||(f0.varL&&f1.varL))continue;
+    const ids=kit.angs[Rr].get(na.a);
+    take({seq:[...f0.ids.map(id=>({id,d:1})),...(f0.varL?[{v:f0.varL}]:[]),...ids.map(id=>({id,d:sg})),...f1.ids.map(id=>({id,d:1})),...(f1.varL?[{v:f1.varL}]:[])],
+      n:f0.n+ids.length+f1.n,turn:a,e1:f0.err,e2:f1.err,varL:f0.varL||f1.varL})}
+  return best&&Object.assign(best,{kit})}
 function joinEnds(A,B){
+  const pa=byId(A.id),sysA=pa.cu?ui.sys:pa.sys,sys=SYS[sysA]&&!SYS[sysA].hide?sysA:ui.sys;
+  const sol=findCatalogJoin(A,B,sys);
+  if(sol){const ca=G.get(A.id).conns[A.ci],cb=G.get(B.id).conns[B.ci];snap();const n0=undoStack.length;
+    const keep=ui.cont;ui.cont=false;st.active={type:'conn',id:A.id,ci:A.ci};const made=[];
+    for(const q of sol.seq){const pc=q.v?placeRaw(sys,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(sys,q.id,null,q.d);made.push(pc);st.active={type:'conn',id:pc.id,ci:1}}
+    ui.cont=keep;const tot=made.reduce((a,pc)=>a+lenOf(partOf(pc)),0),dz=cb.z-ca.z;let z=ca.z;
+    for(const pc of made){const l=lenOf(partOf(pc));pc.att.z=z;pc.z0=z;pc.rise=tot?+(dz*l/tot).toFixed(3):0;z+=pc.rise}
+    rebuild();
+    if(!links.has(key(B.id,B.ci))){const o=JSON.parse(undoStack.pop());st=o.st;ui.sel=o.sel;rebuild();ui.pendJoin={A,B};changed(false);return}
+    ui.sel=null;const o=openC.find(q=>onLv(q.id));st.active=o?{type:'conn',id:o.id,ci:o.ci}:null;
+    ui.lastJoin={A,B,n:n0};changed();
+    const cnt={};for(const pc of made){const nm=pname(partOf(pc));cnt[nm]=(cnt[nm]||0)+1}
+    const gr=tot?Math.abs(dz)/tot*100:0;
+    toast(`Verbunden mit ${made.length} Gleis${made.length>1?'en':''} aus dem Katalog: `+Object.entries(cnt).map(([k,v])=>(v>1?v+'× ':'')+k).join(', ')+(gr>.05?` · ${fmt(gr)} %`:''));
+    try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}return}
+  ui.pendJoin={A,B};ui.lastJoin=null;changed(false)}
+function useFlexForJoin(){const j=ui.pendJoin||ui.lastJoin;if(!j)return;
+  if(ui.lastJoin&&!ui.pendJoin&&undoStack.length===ui.lastJoin.n)undo();
+  ui.pendJoin=null;ui.lastJoin=null;
+  if(!G.has(j.A.id)||!G.has(j.B.id)||links.has(key(j.A.id,j.A.ci))||links.has(key(j.B.id,j.B.ci))){toast('Die Enden sind nicht mehr offen');changed(false);return}
+  joinFlex(j.A,j.B)}
+
+function joinFlex(A,B){
   const ca=G.get(A.id).conns[A.ci],cb=G.get(B.id).conns[B.ci];
   const radii=SYS[ui.sys].parts.filter(q=>q.t==='C'&&!q.hide&&!q.fn).map(q=>q.R),Rmin=radii.length?Math.min(...radii):200;
   let best=null;
@@ -1315,7 +1398,7 @@ function joinEnds(A,B){
   if(!closed){const e=G.get(made[made.length-1].id).conns[1];toast(`Fast verbunden – Abweichung ${fmt(Math.hypot(e.x-cb.x,e.y-cb.y),1)} mm`);return}
   toast(`Verbunden: ${fmt(tot/10)} cm Flexgleis`+(arcs?` · ${arcs} Bogen${arcs>1?'':''} R${fmt(best.R,0)}`:' · gerade')+(gr>.05?` · ${fmt(gr)} % Steigung`:'')+(gr>4?' – zu steil!':''));
   try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}}
-function setJoinMode(on){if(on){if(ui.mode==='start')setStartMode(false);if(ui.mode==='mark')setMarkMode(ui.markK);ui.ins=null}
+function setJoinMode(on){ui.pendJoin=null;if(on){if(ui.mode==='start')setStartMode(false);if(ui.mode==='mark')setMarkMode(ui.markK);ui.ins=null}
   ui.mode=on?'join':null;ui.joinA=null;$('joinBtn').setAttribute('aria-pressed',on);
   const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Verbinden: erstes offenes Ende antippen · ✕ hier beenden';draw()}
 
