@@ -1589,8 +1589,9 @@ function updateTrain3D(){if(!T3)return;if(!T3.train)makeTrain3D();const grp=T3.t
 /* ---------- Vorlage: Kleinstanlage 90 × 60 cm (Fleischmann piccolo) mit Schattenbahnhof ---------- */
 // Nachbau nach 3D-Modellbahn-Studio-Plan; damit er auf 90 × 60 schließt: Schräge 9103 entfällt,
 // rechts 9104 statt 9103, oben Ausgleichsgleis 9110 statt 9101, letztes äußeres Bogenstück als Flexgleis.
-// Der zweigleisige linke Bogen liegt verdeckt (Berg) und dient als Schattenbahnhof.
-function loadTemplateKlein(){
+// Schattenbahnhof unter der Platte: Das Stichgleis oben Mitte führt in einer Runde (R2) im Oval-Inneren
+// 50 mm nach unten (Berg darüber) zu einem Kopfbahnhof mit 2 Gleisen. Der linke Doppelbogen bleibt sichtbar.
+function loadTemplateKlein(H=50){
   const F='fleischmann',keepSys=ui.sys;ui.sys=F;
   st={board:{w:900,d:600},pieces:[],cursor:{x:300,y:60,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
@@ -1611,11 +1612,17 @@ function loadTemplateKlein(){
   const outer=[put('C225.6-15',1),put('C225.6-15',1),put('C225.6-45',1),put('C225.6-45',1)];
   st.active={type:'conn',id:wbl.id,ci:2};const inner=[put('C225.6-45',1),put('C225.6-45',1),put('C225.6-45',1)];
   st.active={type:'conn',id:wm.id,ci:2};const sp1=put('C225.6-7.5',-1);put('S111');put('buffer-S55.5');
-  st.active={type:'conn',id:w2.id,ci:2};const sp2=put('C192-15',1);put('C192-15',1);put('S111');put('buffer-S55.5');
+  st.active={type:'conn',id:w2.id,ci:2};const sp2=put('C192-15',1);put('C192-15',1);
+  const ramp=[];for(let i=0;i<8;i++)ramp.push(put('C225.6-45',1));        // Rampe: eine Runde nach unten
+  const yw=put('W15',1),y1=put('S111');const yard=[yw,y1,put('S111'),put('buffer-S55.5')];   // Schattenbahnhof Gleis 1
+  st.active={type:'conn',id:yw.id,ci:2};const y2=put('C430-15',-1);yard.push(y2,put('S111'),put('buffer-S55.5')); // Gleis 2
   ui.cont=keep;rebuild();
   const n0=st.pieces.length;joinFlex({id:outer[3].id,ci:1},{id:tl.id,ci:1},225.6);
   const flexP=st.pieces.slice(n0);
-  for(const pc of[...outer,...inner,...flexP])pc.hid=true;
+  // Höhen: Rampe gleichmäßig auf -H, Schattenbahnhof flach auf -H; Rampe und Schattenbahnhof verdeckt
+  {const L=ramp.reduce((a,q)=>a+lenOf(partOf(q)),0);let z=0;for(const pc of ramp){pc.att.z=z;pc.z0=z;pc.rise=+(-H*lenOf(partOf(pc))/L).toFixed(3);z+=pc.rise;pc.hid=true}
+   for(const pc of yard){pc.att.z=-H;pc.z0=-H;pc.rise=0;pc.hid=true}}
+  rebuild();
   // auf der Platte zentrieren
   const b=planBB();shiftAll(Math.round(450-(b[0]+b[2])/2),Math.round(300-(b[1]+b[3])/2));rebuild();
   // Analog: beide Gleise des Schattenbahnhofs und die drei Stichgleise einzeln abschaltbar
@@ -1623,6 +1630,7 @@ function loadTemplateKlein(){
   st.marks=[{id:outer[0].id,ci:0,k:'iso1'},{id:tl.id,ci:1,k:'iso1'},{id:outer[1].id,ci:0,k:'feed'},
     {id:inner[0].id,ci:0,k:'iso1'},{id:inner[2].id,ci:1,k:'iso1'},{id:inner[1].id,ci:0,k:'feed'},
     {id:sp1.id,ci:0,k:'iso1'},{id:sp1.id,ci:1,k:'feed'},{id:sp2.id,ci:0,k:'iso1'},{id:sp2.id,ci:1,k:'feed'},
+    {id:y1.id,ci:0,k:'iso1'},{id:y1.id,ci:1,k:'feed'},{id:y2.id,ci:0,k:'iso1'},{id:y2.id,ci:1,k:'feed'},
     {id:bs.id,ci:0,k:'iso1'},{id:bs.id,ci:1,k:'feed'},{id:rs.id,ci:0,k:'feed'}];
   st.sw={[w4.id]:1,[wb.id]:1};   // Hauptstrecke führt oben rechts und unten über den Abzweig
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
@@ -1752,7 +1760,7 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
      <option value="">Leer beginnen</option>
      <option value="oval">Beispiel-Oval mit Ausweiche (Minitrix)</option>
      <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
-     <option value="kl">Kleinstanlage mit Schattenbahnhof, 90 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
+     <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
     const nm=$('pjName');nm.onchange=()=>{proj.name=nm.value.trim()||'Ohne Namen';updProjTitle();saveProject();draw()};
