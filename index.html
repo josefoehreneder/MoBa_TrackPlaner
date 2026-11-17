@@ -328,7 +328,16 @@ input,textarea{-webkit-user-select:text;user-select:text;font-size:16px!importan
 (()=>{
 'use strict';
 const DEG=Math.PI/180, PI=Math.PI, TAU=2*PI;
-const CLEAR=40;            // Lichte Höhe N (mm, SO bis SO, inkl. Brückenstärke knapp)
+// Lichte Höhe bei Überführungen (mm, Schienenoberkante unten bis Schienenoberkante oben).
+// = Fahrzeughöhe nach NEM 102 (ohne Oberleitung ca. 25 mm, mit ca. 37 mm) + Brücke/Platte + Gleishöhe oben
+const VEH_H={no:25,ohl:37};
+const TRACK_H={minitrix:5,fleischmann:6,flnb:3,peco:3.5,kato:6};   // Schiene + Schwellen/Bettung, ca.
+let CLEAR=40;
+function clearParts(){const o=(st&&st.opt)||{},sys=new Set((st&&st.pieces||[]).map(p=>p.sys));if(!sys.size)sys.add(ui.sys);
+  let th=0,ts='';for(const k of sys){const v=TRACK_H[k]??5;if(v>th){th=v;ts=k}}
+  if(o.th!=null&&o.th!=='')th=+o.th;
+  const veh=o.ohl?VEH_H.ohl:VEH_H.no,deck=o.deck!=null&&o.deck!==''?+o.deck:4;
+  return{veh,deck,th,ts,ohl:!!o.ohl,auto:o.th==null||o.th==='',total:Math.round(veh+deck+th)}}
 const STEP=8;              // Abtastung in mm
 
 /* ---------- Gleissysteme (Maße nach Katalog, gerundet) ---------- */
@@ -515,6 +524,7 @@ const byId=id=>st.pieces.find(p=>p.id===id);
 const key=(id,ci)=>id+':'+ci;
 
 function rebuild(){
+  CLEAR=clearParts().total;
   G=new Map();for(const pc of st.pieces)G.set(pc.id,geom(pc));
   links=new Map();const all=[];
   for(const pc of st.pieces)G.get(pc.id).conns.forEach((c,ci)=>all.push({id:pc.id,ci,c}));
@@ -1030,7 +1040,7 @@ function renderCtx(){
     el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${p.art?SYS[pc.sys].name+' · Art. '+artOf(pc,p):pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
     ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
     <div class="stepper"><span>Niveau</span><button data-a="z-" aria-label="Strang absenken">−</button><output>${fz(pc.z0)}</output><button data-a="z+" aria-label="Strang anheben">+</button></div>
-    <div class="stepper"><span>Ebene</span><button data-a="l-" aria-label="Strang eine Ebene tiefer (−40 mm)">−</button><output>E${lvOf(pc.z0)}</output><button data-a="l+" aria-label="Strang eine Ebene höher (+40 mm)">+</button></div>
+    <div class="stepper"><span>Ebene</span><button data-a="l-" aria-label="Strang eine Ebene tiefer (−${CLEAR} mm)">−</button><output>E${lvOf(pc.z0)}</output><button data-a="l+" aria-label="Strang eine Ebene höher (+${CLEAR} mm)">+</button></div>
     ${p.t!=='S'?`<div class="seg" role="group" aria-label="Richtung"><button data-a="dl" aria-pressed="${pc.d===-1}">◀ Links</button><button data-a="dr" aria-pressed="${pc.d===1}">Rechts ▶</button></div>`:''}
     ${isTurnout(p)||p.t==='X'?'<button class="btn" data-a="flip" title="Gleis in Gegenrichtung einbauen">⇄ Umdrehen</button>':''}
     ${isTurnout(p)?'<button class="btn" data-a="swap" title="Hauptstrang und Abzweig tauschen">⑂ Abzweig tauschen</button>':''}
@@ -1199,6 +1209,11 @@ $('menuBtn').onclick=()=>{
   <h3>Einstellungen</h3>
   <div class="acts" style="margin-top:0"><button class="btn" id="cont" aria-pressed="${ui.cont}">Steigung automatisch übernehmen</button></div>
   <p>Ist das an, setzen neue Gleise die Steigung des vorherigen Gleises fort. So entstehen Rampen in einem Zug.</p>
+  <h3>Durchfahrtshöhe</h3>
+  ${(()=>{const c=clearParts();return`<div class="acts" style="margin-top:0"><button class="btn" id="ohl" aria-pressed="${c.ohl}">Oberleitung</button></div>
+  <div class="fields"><label class="field">Brücke / Platte (mm)<input id="cdk" type="number" inputmode="decimal" step="0.5" value="${c.deck}"></label>
+  <label class="field">Gleishöhe oben (mm)<input id="cth" type="number" inputmode="decimal" step="0.5" value="${c.auto?'':c.th}" placeholder="${c.th} (auto)"></label></div>
+  <p><b>${c.veh}</b> mm Fahrzeug${c.ohl?' mit Oberleitung':' ohne Oberleitung'} + <b>${fmt(c.deck,1)}</b> mm Brücke + <b>${fmt(c.th,1)}</b> mm Gleis${c.auto?' ('+SYS[c.ts].name+(TRACK_H[c.ts]>4?', mit Bettung':', ohne Bettung')+')':''} = <b>${c.total} mm</b> lichte Höhe. Danach richten sich Kollisionsprüfung und Ebenen. Gleishöhe leer lassen = automatisch nach Gleissystem.</p>`})()}
   <h3>Anlagenplatte</h3>
   <div class="quick" style="margin:0 0 8px">${PRESETS.map(q=>`<button class="btn" data-bw="${q[1]}" data-bd="${q[2]}">${q[0]}</button>`).join('')}</div>
   <div class="fields"><label class="field">Breite (cm)<input id="bw" type="number" inputmode="decimal" value="${st.board.w/10}"></label>
@@ -1208,7 +1223,7 @@ $('menuBtn').onclick=()=>{
   ${planOffBoard()?'<p style="color:var(--warn)">Einige Gleise ragen über die Platte hinaus.</p>':''}
   <h3>Richtwerte Spur N</h3>
   <div class="rules">
-   <div class="rule"><b>${CLEAR} mm</b><span>Höhenabstand Schienenoberkante zu Schienenoberkante bei Überführungen (mit dünner Brücke). Darunter meldet der Plan eine Kollision.</span></div>
+   <div class="rule"><b>${CLEAR} mm</b><span>Lichte Höhe bei Überführungen, Schienenoberkante zu Schienenoberkante (siehe „Durchfahrtshöhe“). Darunter meldet der Plan eine Kollision.</span></div>
    <div class="rule"><b>≤ 3 %</b><span>Steigung, die die meisten Züge sicher schaffen. Ab 3 % wird die Anzeige orange, ab 4 % rot.</span></div>
    <div class="rule"><b>Kehr&shy;schleife</b><span>Fährt ein Zug in sich selbst zurück, gibt es im Zweileiter-Betrieb einen Kurzschluss. Beide Schienen an Ein- und Ausfahrt trennen und einen Kehrschleifenschalter einbauen. Der Plan markiert Kehrschleifen rot gestrichelt.</span></div>
    <div class="rule"><b>Ein&shy;speisung</b><span>Jeder durch Trennstellen abgeteilte Abschnitt braucht eine eigene Einspeisung. Bei langen Strecken zusätzlich etwa alle 1–2 m einspeisen. „Abschnitte anzeigen“ im Reiter Analog färbt die Stromabschnitte ein.</span></div>
@@ -1224,6 +1239,11 @@ $('menuBtn').onclick=()=>{
   <div class="acts"><button class="btn" id="ld">Plan laden</button></div>`,()=>{
     if(window.__pwaSheet)window.__pwaSheet();
     $('cont').onclick=()=>{ui.cont=!ui.cont;$('cont').setAttribute('aria-pressed',ui.cont);save()};
+    const setOpt=(k,v)=>{snap();st.opt=Object.assign({},st.opt,{[k]:v});rebuild();changed();
+      const sb=$('sheetBody'),y=sb.scrollTop;$('menuBtn').onclick();$('sheetBody').scrollTop=y;toast('Lichte Höhe jetzt '+CLEAR+' mm')};
+    $('ohl').onclick=()=>setOpt('ohl',!clearParts().ohl);
+    $('cdk').onchange=()=>{const v=parseFloat($('cdk').value);if(!(v>=0&&v<30)){toast('Brückenstärke 0–30 mm');return}setOpt('deck',v)};
+    $('cth').onchange=()=>{const t=$('cth').value.trim();if(t===''){setOpt('th',null);return}const v=parseFloat(t);if(!(v>=0&&v<20)){toast('Gleishöhe 0–20 mm');return}setOpt('th',v)};
     $('goProj').onclick=openProjects;
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('bw').value=b.dataset.bw;$('bd').value=b.dataset.bd});
     $('mvGo').onclick=()=>{$('sheet').hidden=true;setMoveMode(true)};$('mvC2').onclick=()=>{centerPlan();$('menuBtn').click()};$('mvR2').onclick=()=>{rotatePlan(90);$('menuBtn').click()};
@@ -1233,7 +1253,7 @@ $('menuBtn').onclick=()=>{
       navigator.clipboard.writeText(txt).then(()=>toast('Plan in die Zwischenablage kopiert'),()=>{ta.value=txt;ta.select();toast('Text markiert – bitte manuell kopieren')})};
     $('ex').onclick=()=>{snap();loadSample();$('sheet').hidden=true;changed()};
     $('nw').onclick=()=>{$('nwc').hidden=false};$('nwn').onclick=()=>{$('nwc').hidden=true};
-    $('nwy').onclick=()=>{snap();st={board:st.board,pieces:[],cursor:{x:Math.round(st.board.w*.25),y:Math.round(st.board.d*.5),a:0,z:0},active:{type:'cursor'},nid:1};ui.sel=null;rebuild();$('sheet').hidden=true;changed()};
+    $('nwy').onclick=()=>{snap();st={board:st.board,opt:st.opt,pieces:[],cursor:{x:Math.round(st.board.w*.25),y:Math.round(st.board.d*.5),a:0,z:0},active:{type:'cursor'},nid:1};ui.sel=null;rebuild();$('sheet').hidden=true;changed()};
     $('ld').onclick=()=>{try{const o=JSON.parse($('imp').value);if(!o.st||!Array.isArray(o.st.pieces))throw 0;snap();st=o.st;ui.sel=null;rebuild();$('sheet').hidden=true;changed();toast('Plan geladen – ⤢ zeigt den ganzen Plan')}catch(e){toast('Der Text ist kein gültiger Plan')}};
   });
 };
@@ -1450,7 +1470,7 @@ function setJoinMode(on){ui.pendJoin=null;if(on){if(ui.mode==='start')setStartMo
   ui.mode=on?'join':null;ui.joinA=null;$('joinBtn').setAttribute('aria-pressed',on);
   const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Verbinden: erstes offenes Ende antippen · ✕ hier beenden';draw()}
 
-/* ---------- Ebenen (je 40 mm lichte Höhe) ---------- */
+/* ---------- Ebenen (je eine lichte Höhe CLEAR) ---------- */
 const lvOf=z=>Math.round(z/CLEAR);
 function pcLv(id){const g=G.get(id);return[lvOf(g.zmin),lvOf(g.zmax)]}
 function levelRange(){let lo=0,hi=0,any=false;for(const g of G.values()){const a=lvOf(g.zmin),b=lvOf(g.zmax);
@@ -1803,7 +1823,7 @@ function openHelix(){const radii=[...new Set(SYS[ui.sys].parts.filter(q=>q.t==='
    <p id="hxInfo"></p>
    <div class="acts"><button class="btn primary" id="hxGo">Spindel bauen</button></div>`,()=>{
     const upd=()=>{const Rr=+$('hxR').value,n=+$('hxN').value,h=+$('hxH').value,g=h/(TAU*Rr)*100;
-      $('hxInfo').innerHTML=`Steigung <b>${fmt(g)} %</b>${g>4?' – zu steil, größeren Radius oder weniger Höhe wählen':g>3?' – grenzwertig für lange Züge':''} · Gesamthöhe <b>${fmt(h*n,0)} mm</b><br>${h<CLEAR+10?'Unter 50 mm wird es zwischen den Runden eng (Gleis plus Trassenbrett).':'Lichte Höhe zwischen den Runden reicht.'}`};
+      $('hxInfo').innerHTML=`Steigung <b>${fmt(g)} %</b>${g>4?' – zu steil, größeren Radius oder weniger Höhe wählen':g>3?' – grenzwertig für lange Züge':''} · Gesamthöhe <b>${fmt(h*n,0)} mm</b><br>${h<CLEAR+6?`Unter ${CLEAR+6} mm wird es zwischen den Runden eng (Gleis plus Trassenbrett).`:'Lichte Höhe zwischen den Runden reicht.'}`};
     ['hxR','hxN','hxH'].forEach(i=>$(i).oninput=upd);upd();
     $('hxGo').onclick=()=>{const Rr=+$('hxR').value,n=+$('hxN').value,h=+$('hxH').value;if(!(n>0&&h>0)){toast('Bitte Windungen und Höhe angeben');return}
       Object.assign(hc,{R:Rr,n,h});$('sheet').hidden=true;buildHelix(Rr,n,h)}})}
