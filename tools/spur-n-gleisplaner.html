@@ -1573,9 +1573,10 @@ function updateTrain3D(){if(!T3)return;if(!T3.train)makeTrain3D();const grp=T3.t
 // rechts 9104 statt 9103, oben Ausgleichsgleis 9110 statt 9101, letztes äußeres Bogenstück als Flexgleis.
 // Schattenbahnhof unter der Platte: Das Stichgleis oben Mitte führt in einer Runde (R2) im Oval-Inneren
 // 50 mm nach unten (Berg darüber) zu einem Kopfbahnhof mit 2 Gleisen. Der linke Doppelbogen bleibt sichtbar.
-function loadTemplateKlein(H=50){
+function loadTemplateKlein(H=50,V=''){
+  const KV=V==='kehre',KC=window.__KC||{lead:'S55.5',turn:['C225.6-45','C225.6-45','S55.5','C225.6-45','C225.6-45'],after:['S111','S111'],H:42};
   const F='fleischmann',keepSys=ui.sys;ui.sys=F;
-  st={board:{w:900,d:600},pieces:[],cursor:{x:300,y:60,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
+  st={board:{w:KV?1000:900,d:600},pieces:[],cursor:{x:300,y:60,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
   const put=(pid,d=1,cu=null)=>{const pc=placeRaw(F,pid,cu,d);st.active={type:'conn',id:pc.id,ci:1};return pc};
   const trail=(pid,side)=>{const T=target(),saved={...st.active};for(const d of[1,-1]){st.active={...saved};const pc=placeRaw(F,pid,null,d);pc.k=1;setTransform(pc);rebuild();
@@ -1584,7 +1585,11 @@ function loadTemplateKlein(H=50){
   const tl=trail('W15',1);                                   // 9170 oben links
   const w2=put('W15',1);                                     // 9171 Stichgleis innen
   put(null,1,{id:'cVV9110',t:'S',L:94.5,vname:'Ausgleichsgleis',art:'9110'});
-  const w4=put('W15',1);const aus=put('S222');               // 9171 oben rechts, Ausziehgleis
+  const w4=put('W15',1);let aus,kh=[],ky=[],ky1,ky2;          // 9171 oben rechts, Ausziehgleis
+  if(KV){aus=put(KC.lead);kh.push(aus);for(const q of KC.turn)kh.push(put(q,1));for(const q of KC.after)kh.push(put(q,q[0]==='C'?-1:1));
+    const kw=put('W15',1);ky1=put('S111');ky.push(kw,ky1,put('S111'),put('S111'),put('buffer-S55.5'));
+    st.active={type:'conn',id:kw.id,ci:2};ky2=put('C430-15',-1);ky.push(ky2,put('S111'),put('S111'),put('buffer-S55.5'))}
+  else aus=put('S222');
   st.active={type:'conn',id:w4.id,ci:2};
   put('C225.6-45',1);put('C225.6-15',1);put('C225.6-15',1);const rs=put('S27.75');put('C225.6-15',1);put('C225.6-45',1);put('C430-30',1);
   const wb=put('W15',1);const bs=put('S55.5');put('S222');put('S27.75');put('buffer-S55.5');   // 9171 unten, Stumpfgleis links
@@ -1595,24 +1600,31 @@ function loadTemplateKlein(H=50){
   st.active={type:'conn',id:wbl.id,ci:2};const inner=[put('C225.6-45',1),put('C225.6-45',1),put('C225.6-45',1)];
   st.active={type:'conn',id:wm.id,ci:2};const sp1=put('C225.6-15',-1);put('S111');put('buffer-S55.5');
   st.active={type:'conn',id:w2.id,ci:2};const sp2=put('C192-15',1);put('C192-15',1);
-  const ramp=[];for(let i=0;i<8;i++)ramp.push(put('C225.6-45',1));        // Rampe: eine Runde nach unten
-  const yw=put('W15',1),y1=put('S111');const yard=[yw,y1,put('S111'),put('buffer-S55.5')];   // Schattenbahnhof Gleis 1
-  st.active={type:'conn',id:yw.id,ci:2};const y2=put('C430-15',-1);yard.push(y2,put('S111'),put('buffer-S55.5')); // Gleis 2
+  const ramp=[],yard=[];let y1,y2;
+  if(KV)put('buffer-S55.5');
+  else{for(let i=0;i<8;i++)ramp.push(put('C225.6-45',1));        // Rampe: eine Runde nach unten
+  const yw=put('W15',1);y1=put('S111');yard.push(yw,y1,put('S111'),put('buffer-S55.5'));   // Schattenbahnhof Gleis 1
+  st.active={type:'conn',id:yw.id,ci:2};y2=put('C430-15',-1);yard.push(y2,put('S111'),put('buffer-S55.5'))} // Gleis 2
   ui.cont=keep;rebuild();
   const n0=st.pieces.length;joinFlex({id:outer[3].id,ci:1},{id:tl.id,ci:1},225.6);
   const flexP=st.pieces.slice(n0);
   // Höhen: Rampe gleichmäßig auf -H, Schattenbahnhof flach auf -H; Rampe und Schattenbahnhof verdeckt
   {const L=ramp.reduce((a,q)=>a+lenOf(partOf(q)),0);let z=0;for(const pc of ramp){pc.att.z=z;pc.z0=z;pc.rise=+(-H*lenOf(partOf(pc))/L).toFixed(3);z+=pc.rise;pc.hid=true}
-   for(const pc of yard){pc.att.z=-H;pc.z0=-H;pc.rise=0;pc.hid=true}}
+   for(const pc of yard){pc.att.z=-H;pc.z0=-H;pc.rise=0;pc.hid=true}
+   if(KV){const L=kh.reduce((a,q)=>a+lenOf(partOf(q)),0);let z=0;for(const pc of kh){pc.att.z=z;pc.z0=z;pc.rise=+(-KC.H*lenOf(partOf(pc))/L).toFixed(3);z+=pc.rise;pc.hid=true}
+     for(const pc of ky){pc.att.z=-KC.H;pc.z0=-KC.H;pc.rise=0;pc.hid=true}}}
   rebuild();
   // auf der Platte zentrieren
-  const b=planBB();shiftAll(Math.round(450-(b[0]+b[2])/2),Math.round(300-(b[1]+b[3])/2));rebuild();
+  {const vis=st.pieces.filter(p=>!p.hid);let b=[1e9,1e9,-1e9,-1e9];for(const p of vis)for(const pa of G.get(p.id).paths)for(const q of pa){b[0]=Math.min(b[0],q.x);b[1]=Math.min(b[1],q.y);b[2]=Math.max(b[2],q.x);b[3]=Math.max(b[3],q.y)}
+   shiftAll(Math.round(450-(b[0]+b[2])/2),Math.round(300-(b[1]+b[3])/2));rebuild();
+   if(KV){const bb=planBB();shiftAll(Math.round(12-bb[0]),0);rebuild()}}
   // Analog: beide Gleise des Schattenbahnhofs und die drei Stichgleise einzeln abschaltbar
   const lastO=flexP.length?flexP[flexP.length-1]:outer[3];
   st.marks=[{id:outer[0].id,ci:0,k:'iso1'},{id:tl.id,ci:1,k:'iso1'},{id:outer[1].id,ci:0,k:'feed'},
     {id:inner[0].id,ci:0,k:'iso1'},{id:inner[2].id,ci:1,k:'iso1'},{id:inner[1].id,ci:0,k:'feed'},
     {id:sp1.id,ci:0,k:'iso1'},{id:sp1.id,ci:1,k:'feed'},{id:sp2.id,ci:0,k:'iso1'},{id:sp2.id,ci:1,k:'feed'},
-    {id:y1.id,ci:0,k:'iso1'},{id:y1.id,ci:1,k:'feed'},{id:y2.id,ci:0,k:'iso1'},{id:y2.id,ci:1,k:'feed'},
+    ...(KV?[{id:aus.id,ci:0,k:'iso1'},{id:aus.id,ci:1,k:'feed'},{id:ky1.id,ci:0,k:'iso1'},{id:ky1.id,ci:1,k:'feed'},{id:ky2.id,ci:0,k:'iso1'},{id:ky2.id,ci:1,k:'feed'}]
+       :[{id:y1.id,ci:0,k:'iso1'},{id:y1.id,ci:1,k:'feed'},{id:y2.id,ci:0,k:'iso1'},{id:y2.id,ci:1,k:'feed'}]),
     {id:bs.id,ci:0,k:'iso1'},{id:bs.id,ci:1,k:'feed'},{id:rs.id,ci:0,k:'feed'}];
   st.sw={[w4.id]:1,[wb.id]:1};   // Hauptstrecke führt oben rechts und unten über den Abzweig
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
@@ -1715,7 +1727,7 @@ function openProject(id){saveProject();const e=projIndex().find(q=>q.id===id),d=
   applyProject(e,d,false);$('sheet').hidden=true;toast(`„${e.name}“ geöffnet`)}
 function createProject(name,sys,w,d,sample){saveProject();
   const e={id:newId(),name:name||'Neues Projekt'};
-  if(sample==='kl')loadTemplateKlein();else if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
+  if(sample==='kl')loadTemplateKlein();else if(sample==='klk')loadTemplateKlein(50,'kehre');else if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
   applyProject(e,{st,sys},true);saveProject();$('sheet').hidden=true;toast(`Projekt „${e.name}“ angelegt`)}
 function duplicateProject(id){saveProject();const src=loadProjectData(id),idx=projIndex(),e0=idx.find(q=>q.id===id);if(!src||!e0)return;
   const id2=newId();lsSet('nplan.p.'+id2,src);idx.push(Object.assign({},e0,{id:id2,name:e0.name+' (Kopie)',created:Date.now(),updated:Date.now()}));lsSet(PIDX,idx);openProjects()}
@@ -1742,7 +1754,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
      <option value="">Leer beginnen</option>
      <option value="oval">Beispiel-Oval mit Ausweiche (Minitrix)</option>
      <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
-     <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
+     <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option>
+     <option value="klk">Kleinstanlage, Schattenbahnhof über Kehre am Ausziehgleis, 100 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
     const nm=$('pjName');nm.onchange=()=>{proj.name=nm.value.trim()||'Ohne Namen';updProjTitle();saveProject();draw()};
@@ -1750,8 +1763,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
       ({open:()=>openProject(id),dup:()=>duplicateProject(id),del:()=>{c.hidden=false},deln:()=>{c.hidden=true},dely:()=>deleteProject(id)})[b.dataset.p]()}));
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('npW').value=b.dataset.bw;$('npD').value=b.dataset.bd});
     $('npGo').onclick=()=>{const w=parseFloat($('npW').value),d=parseFloat($('npD').value);if(!(w>=20&&d>=20)){toast('Plattengröße in cm angeben (mind. 20 cm)');return}
-      const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof'}[tp]||''),tp==='kl'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
-    $('npTpl').onchange=()=>{if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
+      const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof',klk:'Kleinstanlage mit Kehre'}[tp]||''),tp==='kl'||tp==='klk'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
+    $('npTpl').onchange=()=>{if($('npTpl').value==='klk'){$('npW').value=100;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
   })}
 $('brandBtn').onclick=openProjects;
 
