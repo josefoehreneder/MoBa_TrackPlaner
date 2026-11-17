@@ -424,7 +424,7 @@ const LEGACY={
   fleischmann:[S(104.2),C(192,30),Bw('BW30',192,225.6,30),SP('buffer','Prellbock',S(57.5))],
   peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)]};
 for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q.id))SYS[k].parts.push(Object.assign(q,{hide:true}));
-const artOf=(pc,p)=>p.art?(p.artR&&pc.d===-1?p.artR:p.art):'';
+const artOf=(pc,p)=>p.art?(p.artR&&pc.d===1?p.artR:p.art):''; // d=1: rechts, d=-1: links
 
 /* ---------- State ---------- */
 let st={board:{w:1500,d:700},pieces:[],cursor:{x:300,y:350,a:0,z:0},active:{type:'cursor'},nid:1};
@@ -801,7 +801,7 @@ function openTurnoutPicker(pc){
   const list=SYS[sysK].parts.filter(q=>(q.t==='T'||q.t==='X')&&!q.hide);
   openSheet('Weiche einsetzen',`<p>Die Weiche ersetzt dieses Gleis (und bei Bedarf das nächste gerade Gleis). Reicht die Länge nicht genau, ergänzt der Plan passende Geraden oder ein Ausgleichsstück zum Zuschneiden.</p>
    <table><tbody>${list.map(q=>`<tr><td><b>${pname(q)}</b><br><span style="color:var(--muted);font-size:12px">${fmt(q.L)} mm${q.R?' · R'+fmt(q.R,0):''}</span></td>
-   <td style="text-align:right;white-space:nowrap">${q.t==='T'&&!q.three?`<button class="btn" data-w="${q.id}" data-d="1">◀ links</button> <button class="btn" data-w="${q.id}" data-d="-1">rechts ▶</button>`:`<button class="btn" data-w="${q.id}" data-d="1">einsetzen</button>`}</td></tr>`).join('')}</tbody></table>
+   <td style="text-align:right;white-space:nowrap">${q.t==='T'&&!q.three?`<button class="btn" data-w="${q.id}" data-d="-1">◀ links</button> <button class="btn" data-w="${q.id}" data-d="1">rechts ▶</button>`:`<button class="btn" data-w="${q.id}" data-d="1">einsetzen</button>`}</td></tr>`).join('')}</tbody></table>
    <p>Danach kannst du mit „Anschluss“ die Weiche umdrehen und mit „Spiegeln“ die Abzweigseite wechseln.</p>`,()=>{
     document.querySelectorAll('#sheetBody [data-w]').forEach(b=>b.onclick=()=>{$('sheet').hidden=true;startInsert(pc);insertPart(sysK,b.dataset.w,null,+b.dataset.d)})});
 }
@@ -886,6 +886,9 @@ function draw(){
     ctx.strokeStyle=COL.rail;ctx.lineWidth=Math.max(.8,.9*s);
     for(const[l,r]of g.rails){if(s>.28){poly(l);ctx.stroke();poly(r);ctx.stroke()}else{poly(g.paths[0]);}}
     if(SIM.on&&swCount(partOf(pc))>1){ctx.strokeStyle=COL.accent;ctx.lineWidth=Math.max(2,3*s);ctx.lineCap='round';for(const pi of activePaths(pc)){poly(g.paths[pi]);ctx.stroke()}ctx.lineCap='butt'}
+    if(pc.hid){ctx.save();ctx.globalAlpha=dimLv?.1:.55;ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(3,27*s);g.paths.forEach(p=>{poly(p);ctx.stroke()});ctx.restore();
+      ctx.save();if(dimLv)ctx.globalAlpha=.16;ctx.setLineDash([Math.max(3,6*s),Math.max(3,5*s)]);ctx.strokeStyle=COL.muted;ctx.lineWidth=Math.max(1,1.4*s);
+      for(const p of g.paths){poly(offsetPath(p,13.5));ctx.stroke();poly(offsetPath(p,-13.5));ctx.stroke()}ctx.restore()}
     if(partOf(pc).fn&&s>.22)drawFn(pc,g,s);
     // Stoßstellen
     ctx.strokeStyle=COL.board;ctx.lineWidth=Math.max(1,1.2*s);ctx.beginPath();
@@ -900,6 +903,9 @@ function draw(){
     for(const pc of st.pieces){if(!onLv(pc.id))continue;const g=G.get(pc.id);g.conns.forEach(c=>{if(Math.abs(c.z)<1)return;
       if(seen.some(q=>Math.hypot(q.x-c.x,q.y-c.y)<20))return;seen.push(c);
       const ox=-Math.sin(c.a)*22,oy=Math.cos(c.a)*22;pillText(sx(c.x)+ox*Math.min(1,s*1.4),sy(c.y)+oy*Math.min(1,s*1.4),fz(c.z),COL.ink,COL.bg)})}}
+  // Beschriftung verdeckter Abschnitte (einmal je Abschnitt)
+  if(s>.25)for(const pc of st.pieces){if(!pc.hid||!onLv(pc.id))continue;const L=links.get(key(pc.id,0));if(L&&byId(L.id)&&byId(L.id).hid)continue;
+    const p=G.get(pc.id).paths[0],m=p[Math.floor(p.length/2)];pillText(sx(m.x),sy(m.y),'verdeckt',COL.muted,COL.bg)}
   // Trennstellen & Einspeisungen
   for(const m of st.marks||[]){if(!onLv(m.id))continue;const c=G.get(m.id).conns[m.ci],nx=-Math.sin(c.a),ny=Math.cos(c.a),tx=Math.cos(c.a),ty=Math.sin(c.a);
     if(m.k==='feed'){const ox=sx(c.x+nx*20),oy=sy(c.y+ny*20);ctx.strokeStyle=COL.bad;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(c.x+nx*4.5),sy(c.y+ny*4.5));ctx.lineTo(ox,oy);ctx.stroke();
@@ -1025,11 +1031,12 @@ function renderCtx(){
     ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
     <div class="stepper"><span>Niveau</span><button data-a="z-" aria-label="Strang absenken">−</button><output>${fz(pc.z0)}</output><button data-a="z+" aria-label="Strang anheben">+</button></div>
     <div class="stepper"><span>Ebene</span><button data-a="l-" aria-label="Strang eine Ebene tiefer (−40 mm)">−</button><output>E${lvOf(pc.z0)}</output><button data-a="l+" aria-label="Strang eine Ebene höher (+40 mm)">+</button></div>
-    ${p.t!=='S'?`<div class="seg" role="group" aria-label="Richtung"><button data-a="dl" aria-pressed="${pc.d===1}">◀ Links</button><button data-a="dr" aria-pressed="${pc.d===-1}">Rechts ▶</button></div>`:''}
+    ${p.t!=='S'?`<div class="seg" role="group" aria-label="Richtung"><button data-a="dl" aria-pressed="${pc.d===-1}">◀ Links</button><button data-a="dr" aria-pressed="${pc.d===1}">Rechts ▶</button></div>`:''}
     ${isTurnout(p)||p.t==='X'?'<button class="btn" data-a="flip" title="Gleis in Gegenrichtung einbauen">⇄ Umdrehen</button>':''}
     ${isTurnout(p)?'<button class="btn" data-a="swap" title="Hauptstrang und Abzweig tauschen">⑂ Abzweig tauschen</button>':''}
     ${p.t==='S'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Weiche einsetzen</button>':''}
     ${p.t==='C'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Bogenweiche einsetzen</button>':''}
+    <button class="btn" data-a="hid" aria-pressed="${!!pc.hid}" title="Gleis liegt im Tunnel oder unter Landschaft">Verdeckt</button>
     ${p.fn==='iso'?`<button class="btn" data-a="iso2" aria-pressed="${!!pc.iso2}">${pc.iso2?'Beidseitig getrennt':'Einseitig getrennt'}</button>`:''}
     <button class="btn" data-a="ins">Davor einfügen</button>
     <button class="btn danger" data-a="del">Löschen</button><button class="btn" data-a="x" aria-label="Auswahl aufheben">✕</button>`;
@@ -1071,10 +1078,11 @@ $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(a==='z-'||a==='z+'){snap();pc.z0+=a==='z+'?5:-5;propagate(pc);changed()}
   if(a==='l-'||a==='l+'){snap();pc.z0=Math.round(pc.z0/CLEAR)*CLEAR+(a==='l+'?CLEAR:-CLEAR);propagate(pc);
     if(ui.level!=='all')ui.level=lvOf(pc.z0);changed();toast(`Strang auf Ebene E${lvOf(pc.z0)} (${fz(pc.z0)})`)}
-  if((a==='dl'&&pc.d!==1)||(a==='dr'&&pc.d!==-1))reorient(pc,-pc.d,null,a==='dl'?'Nach links gedreht':'Nach rechts gedreht');
+  if((a==='dl'&&pc.d!==-1)||(a==='dr'&&pc.d!==1))reorient(pc,-pc.d,null,a==='dl'?'Nach links gedreht':'Nach rechts gedreht');
   if(a==='flip'){const pm=p.t==='X'?{0:1,1:0,2:3,3:2}:{0:1,1:0};reorient(pc,p.t==='X'?pc.d:-pc.d,pm,'Umgedreht')}
   if(a==='swap')reorient(pc,pc.d,{1:2,2:1},'Abzweig getauscht');
   if(a==='del')del(pc);
+  if(a==='hid'){snap();pc.hid=!pc.hid;changed();toast(pc.hid?'Gleis als verdeckt markiert':'Gleis wieder sichtbar');return}
   if(a==='iso2'){snap();pc.iso2=!pc.iso2;rebuild();changed();toast(pc.iso2?'Trenngleis: beide Schienen getrennt':'Trenngleis: eine Schiene getrennt')}
   if(a==='ins')startInsert(pc);
   if(a==='wins')openTurnoutPicker(pc);
@@ -1122,8 +1130,8 @@ function setMarkMode(k){if(ui.mode==='mark'&&ui.markK===k){ui.mode=null;ui.markK
   const hint=$('modeHint');hint.hidden=ui.mode!=='mark';
   if(ui.mode==='mark')hint.textContent=(k==='feed'?'Einspeisung':k==='iso2'?'Trennstelle beidseitig':'Trennstelle einseitig')+': Gleisstoß antippen · ✕ hier beenden';
   renderPalette();draw()}
-function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===1);$('dirR').setAttribute('aria-pressed',d===-1);renderPalette();save()}
-$('dirL').onclick=()=>setDir(1);$('dirR').onclick=()=>setDir(-1);
+function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===-1);$('dirR').setAttribute('aria-pressed',d===1);renderPalette();save()}
+$('dirL').onclick=()=>setDir(-1);$('dirR').onclick=()=>setDir(1);
 $('modeHint').onclick=()=>{if(ui.mode==='move')setMoveMode(false);else if(ui.mode==='join')setJoinMode(false);else if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
 function setStartMode(on){if(on&&ui.mode==='mark'){ui.markK=null;renderPalette()}ui.mode=on?'start':null;$('modeHint').hidden=!on;if(on)$('modeHint').textContent='Auf die Platte tippen oder den gelben Pfeil ziehen';$('startBtn').setAttribute('aria-pressed',on);draw()}
 $('startBtn').onclick=()=>{if(ui.view3){setView(false)}
@@ -1172,7 +1180,7 @@ function bom(){const m=new Map();
   const flexTot={};
   for(const pc of st.pieces){const p=partOf(pc),src=p.flex?'Flexgleis zuschneiden':p.art?SYS[pc.sys].name:pc.cu?'Eigenes Maß':SYS[pc.sys].name;
     if(p.flex)flexTot[pc.sys]=(flexTot[pc.sys]||0)+lenOf(p);
-    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' links':' rechts'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(p.flex||p.art?'':pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
+    const n=pname(p)+(isTurnout(p)&&!p.three?(pc.d===1?' rechts':' links'):'')+(p.fn==='iso'?(pc.iso2?' (beidseitig)':' (einseitig)'):'')+(p.approx?' (Maße angenähert)':'')+(p.flex||p.art?'':pc.cu&&p.fill?(p.t==='S'?' (zuschneiden)':' (Flexgleis biegen)'):(pc.cu&&p.t==='S'?' (Flexgleis)':''));
     const art=artOf(pc,p),k=src+'|'+(art?art+' · ':'')+n+'|'+(p.alt||'');m.set(k,(m.get(k)||0)+1)}
   let i1=0,fd=0;for(const mk of st.marks||[]){if(mk.k==='iso1')i1+=1;if(mk.k==='iso2')i1+=2;if(mk.k==='feed')fd++}
   const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n,note]=k.split('|');return{s,n,note,v}});
@@ -1232,7 +1240,7 @@ $('menuBtn').onclick=()=>{
 function openCustom(focus){
   const c=ui.cust||(ui.cust={L:150,R:300,A:30,wL:111,wR:430,wA:15});
   const fld=(id,lab,val)=>`<label class="field">${lab}<input id="${id}" type="number" inputmode="decimal" value="${val}"></label>`;
-  const side=ui.dir===1?'links':'rechts';
+  const side=ui.dir===1?'rechts':'links';
   const body={
     S:['Flexgleis',`<p>Gerades Stück in beliebiger Länge, z. B. für Flexgleis oder Arnold.</p><div class="fields">${fld('cl','Länge (mm)',c.L)}</div><div class="acts"><button class="btn primary" id="go">Gerade legen</button></div>`],
     C:['Eigener Bogen',`<p>Bogen nach ${side}. Die Richtung stellst du unten mit L/R um.</p><div class="fields">${fld('cr','Radius (mm)',c.R)}${fld('ca','Winkel (°)',c.A)}</div><div class="acts"><button class="btn primary" id="go">Bogen legen</button></div>`],
@@ -1412,12 +1420,14 @@ function useFlexForJoin(){const j=ui.pendJoin||ui.lastJoin;if(!j)return;
   if(!G.has(j.A.id)||!G.has(j.B.id)||links.has(key(j.A.id,j.A.ci))||links.has(key(j.B.id,j.B.ci))){toast('Die Enden sind nicht mehr offen');changed(false);return}
   joinFlex(j.A,j.B)}
 
-function joinFlex(A,B){
+function joinFlex(A,B,prefR){
   const ca=G.get(A.id).conns[A.ci],cb=G.get(B.id).conns[B.ci];
   const radii=SYS[ui.sys].parts.filter(q=>q.t==='C'&&!q.hide&&!q.fn).map(q=>q.R),Rmin=radii.length?Math.min(...radii):200;
   let best=null;
-  for(const k of[1,1.25,1.5,2,3,4,6,10,20,50])for(const s1 of[1,-1])for(const s2 of[1,-1]){
+  const ks=[1,1.25,1.5,2,3,4,6,10,20,50];if(prefR)ks.unshift(prefR/Rmin);
+  for(const k of ks)for(const s1 of[1,-1])for(const s2 of[1,-1]){
     const sol=dubins(ca,ca.a,cb,wrap(cb.a+PI),Rmin*k,s1,s2);if(!sol)continue;
+    if(prefR&&Math.abs(Rmin*k-prefR)<.01)sol.len-=1e5;
     const score=Math.floor(sol.turn/(15*DEG)+1e-6)*1e9-(sol.turn<45*DEG?Math.min(sol.R,4*Rmin)*1e3:0)+sol.len;if(!best||score<best.score)best=Object.assign(sol,{score})}
   if(!best){toast('Keine Verbindung gefunden');return}
   snap();const keep=ui.cont;ui.cont=false;st.active={type:'conn',id:A.id,ci:A.ci};
@@ -1576,6 +1586,48 @@ function makeTrain3D(){const grp=new THREE.Group();T3.scene.add(grp);T3.train=gr
 function updateTrain3D(){if(!T3)return;if(!T3.train)makeTrain3D();const grp=T3.train;grp.visible=SIM.on&&validTrail();if(!grp.visible)return;
   carPoses().forEach((q,i)=>{const g=grp.children[i];g.position.set(q.x,q.z+4.6,q.y);g.rotation.set(0,-q.h,q.pitch,'YZX')})}
 
+/* ---------- Vorlage: Kleinstanlage 90 × 60 cm (Fleischmann piccolo) mit Schattenbahnhof ---------- */
+// Nachbau nach 3D-Modellbahn-Studio-Plan; damit er auf 90 × 60 schließt: Schräge 9103 entfällt,
+// rechts 9104 statt 9103, oben Ausgleichsgleis 9110 statt 9101, letztes äußeres Bogenstück als Flexgleis.
+// Der zweigleisige linke Bogen liegt verdeckt (Berg) und dient als Schattenbahnhof.
+function loadTemplateKlein(){
+  const F='fleischmann',keepSys=ui.sys;ui.sys=F;
+  st={board:{w:900,d:600},pieces:[],cursor:{x:300,y:60,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
+  const keep=ui.cont;ui.cont=false;rebuild();
+  const put=(pid,d=1,cu=null)=>{const pc=placeRaw(F,pid,cu,d);st.active={type:'conn',id:pc.id,ci:1};return pc};
+  const trail=(pid,side)=>{const T=target(),saved={...st.active};for(const d of[1,-1]){st.active={...saved};const pc=placeRaw(F,pid,null,d);pc.k=1;setTransform(pc);rebuild();
+    const c2=G.get(pc.id).conns[2],sd=Math.sign(Math.cos(T.a)*(c2.y-T.y)-Math.sin(T.a)*(c2.x-T.x));if(sd===side){st.active={type:'conn',id:pc.id,ci:0};return pc}st.pieces=st.pieces.filter(q=>q!==pc);rebuild()}
+    throw new Error('Weiche passt nicht')};
+  const tl=trail('W15',1);                                   // 9170 oben links
+  const w2=put('W15',1);                                     // 9171 Stichgleis innen
+  put(null,1,{id:'cVV9110',t:'S',L:94.5,vname:'Ausgleichsgleis',art:'9110'});
+  const w4=put('W15',1);const aus=put('S222');               // 9171 oben rechts, Ausziehgleis
+  st.active={type:'conn',id:w4.id,ci:2};
+  put('C225.6-45',1);put('C225.6-15',1);put('C225.6-15',1);const rs=put('S27.75');put('C225.6-15',1);put('C225.6-45',1);put('C430-30',1);
+  const wb=put('W15',1);const bs=put('S55.5');put('S222');put('S27.75');put('buffer-S55.5');   // 9171 unten, Stumpfgleis links
+  st.active={type:'conn',id:wb.id,ci:2};
+  const wm=trail('W15',1);                                   // 9170 unten Mitte
+  const wbl=put('W15',1);                                    // 9171 unten links
+  const outer=[put('C225.6-15',1),put('C225.6-15',1),put('C225.6-45',1),put('C225.6-45',1)];
+  st.active={type:'conn',id:wbl.id,ci:2};const inner=[put('C225.6-45',1),put('C225.6-45',1),put('C225.6-45',1)];
+  st.active={type:'conn',id:wm.id,ci:2};const sp1=put('C225.6-7.5',-1);put('S111');put('buffer-S55.5');
+  st.active={type:'conn',id:w2.id,ci:2};const sp2=put('C192-15',1);put('C192-15',1);put('S111');put('buffer-S55.5');
+  ui.cont=keep;rebuild();
+  const n0=st.pieces.length;joinFlex({id:outer[3].id,ci:1},{id:tl.id,ci:1},225.6);
+  const flexP=st.pieces.slice(n0);
+  for(const pc of[...outer,...inner,...flexP])pc.hid=true;
+  // auf der Platte zentrieren
+  const b=planBB();shiftAll(Math.round(450-(b[0]+b[2])/2),Math.round(300-(b[1]+b[3])/2));rebuild();
+  // Analog: beide Gleise des Schattenbahnhofs und die drei Stichgleise einzeln abschaltbar
+  const lastO=flexP.length?flexP[flexP.length-1]:outer[3];
+  st.marks=[{id:outer[0].id,ci:0,k:'iso1'},{id:tl.id,ci:1,k:'iso1'},{id:outer[1].id,ci:0,k:'feed'},
+    {id:inner[0].id,ci:0,k:'iso1'},{id:inner[2].id,ci:1,k:'iso1'},{id:inner[1].id,ci:0,k:'feed'},
+    {id:sp1.id,ci:0,k:'iso1'},{id:sp1.id,ci:1,k:'feed'},{id:sp2.id,ci:0,k:'iso1'},{id:sp2.id,ci:1,k:'feed'},
+    {id:bs.id,ci:0,k:'iso1'},{id:bs.id,ci:1,k:'feed'},{id:rs.id,ci:0,k:'feed'}];
+  st.sw={[w4.id]:1,[wb.id]:1};   // Hauptstrecke führt oben rechts und unten über den Abzweig
+  st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
+}
+
 /* ---------- Vorlage: Zwei-Ebenen-Spirale 90 × 60 cm, Minitrix, analog ---------- */
 // Spirale aus R2 (außen) und R1 (innen): unten Schattenbahnhof (2 Gleise, E0),
 // oben sichtbarer Bahnhof (2 Gleise, E1). Links kreuzen sich die beiden Übergänge (Brücke).
@@ -1673,7 +1725,7 @@ function openProject(id){saveProject();const e=projIndex().find(q=>q.id===id),d=
   applyProject(e,d,false);$('sheet').hidden=true;toast(`„${e.name}“ geöffnet`)}
 function createProject(name,sys,w,d,sample){saveProject();
   const e={id:newId(),name:name||'Neues Projekt'};
-  if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
+  if(sample==='kl')loadTemplateKlein();else if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
   applyProject(e,{st,sys},true);saveProject();$('sheet').hidden=true;toast(`Projekt „${e.name}“ angelegt`)}
 function duplicateProject(id){saveProject();const src=loadProjectData(id),idx=projIndex(),e0=idx.find(q=>q.id===id);if(!src||!e0)return;
   const id2=newId();lsSet('nplan.p.'+id2,src);idx.push(Object.assign({},e0,{id:id2,name:e0.name+' (Kopie)',created:Date.now(),updated:Date.now()}));lsSet(PIDX,idx);openProjects()}
@@ -1699,7 +1751,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
    <label class="field" style="margin-top:8px">Vorlage<select id="npTpl">
      <option value="">Leer beginnen</option>
      <option value="oval">Beispiel-Oval mit Ausweiche (Minitrix)</option>
-     <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option></select></label>
+     <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
+     <option value="kl">Kleinstanlage mit Schattenbahnhof, 90 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
     const nm=$('pjName');nm.onchange=()=>{proj.name=nm.value.trim()||'Ohne Namen';updProjTitle();saveProject();draw()};
@@ -1707,8 +1760,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
       ({open:()=>openProject(id),dup:()=>duplicateProject(id),del:()=>{c.hidden=false},deln:()=>{c.hidden=true},dely:()=>deleteProject(id)})[b.dataset.p]()}));
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('npW').value=b.dataset.bw;$('npD').value=b.dataset.bd});
     $('npGo').onclick=()=>{const w=parseFloat($('npW').value),d=parseFloat($('npD').value);if(!(w>=20&&d>=20)){toast('Plattengröße in cm angeben (mind. 20 cm)');return}
-      const tp=$('npTpl').value;createProject($('npName').value.trim()||(tp==='2e'?'Zwei-Ebenen-Anlage':''),tp?'minitrix':$('npSys').value,w,d,tp)};
-    $('npTpl').onchange=()=>{if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
+      const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof'}[tp]||''),tp==='kl'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
+    $('npTpl').onchange=()=>{if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
   })}
 $('brandBtn').onclick=openProjects;
 
@@ -1735,7 +1788,7 @@ function openVar(vp){const v0=ui.varL&&ui.varL[vp.id]||vp.vmax;
       usePart(ui.sys,null,{id:'cV'+vp.id,t:'S',L,vname:vp.vname,art:vp.art})}})}
 function openHelix(){const radii=[...new Set(SYS[ui.sys].parts.filter(q=>q.t==='C'&&!q.hide&&!q.fn).map(q=>q.R))].sort((a,b)=>a-b);
   const hc=ui.helix||(ui.helix={R:radii[Math.min(1,radii.length-1)],n:2,h:50});if(!radii.includes(hc.R))hc.R=radii[Math.min(1,radii.length-1)];
-  openSheet('Gleisspindel',`<p>Wendel aus ${SYS[ui.sys].name}-Bögen, die mit jeder Runde um die eingestellte Höhe steigt – ${ui.dir===1?'links':'rechts'} herum (mit L/R umstellen). Sie beginnt am gelben Anschluss; das obere Ende bleibt offen zum Weiterbauen.</p>
+  openSheet('Gleisspindel',`<p>Wendel aus ${SYS[ui.sys].name}-Bögen, die mit jeder Runde um die eingestellte Höhe steigt – ${ui.dir===1?'rechts':'links'} herum (mit L/R umstellen). Sie beginnt am gelben Anschluss; das obere Ende bleibt offen zum Weiterbauen.</p>
    <div class="fields"><label class="field">Radius<select id="hxR">${radii.map(r=>`<option value="${r}"${r===hc.R?' selected':''}>R ${fmt(r)}</option>`).join('')}</select></label>
    <label class="field">Windungen<input id="hxN" type="number" inputmode="decimal" min="0.25" step="0.25" value="${hc.n}"></label>
    <label class="field">Höhe je Runde (mm)<input id="hxH" type="number" inputmode="decimal" value="${hc.h}"></label></div>
