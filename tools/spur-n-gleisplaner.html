@@ -942,12 +942,15 @@ const ptrs=new Map();let gest=null;
 function pos(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const p=pos(e);ptrs.set(e.pointerId,p);
   if(ptrs.size===1&&ui.mode==='move'){gest={t:'move0',x0:p.x,y0:p.y,lx:p.x,ly:p.y};return}
+  if(ptrs.size===1&&ui.mode==='pmove'&&ui.sel){gest={t:'pm0',x0:p.x,y0:p.y,lx:p.x,ly:p.y};return}
   if(ptrs.size===1){gest={t:'tap',x0:p.x,y0:p.y,ox:view.ox,oy:view.oy};
     if(st.active&&st.active.type==='cursor'&&Math.hypot(sx(st.cursor.x)-p.x,sy(st.cursor.y)-p.y)<36)gest.t='drag0'}
   else if(ptrs.size===2){const[a,b]=[...ptrs.values()];gest={t:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y),s0:view.s,m0:{x:(a.x+b.x)/2,y:(a.y+b.y)/2},ox:view.ox,oy:view.oy}}});
 cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=pos(e);ptrs.set(e.pointerId,p);if(!gest)return;
   if(gest.t==='move0'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>4){snap();gest.t='move'}
   if(gest.t==='move'&&ptrs.size===1){shiftAll((p.x-gest.lx)/view.s,(p.y-gest.ly)/view.s);gest.lx=p.x;gest.ly=p.y;rebuild();draw();return}
+  if(gest.t==='pm0'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>4){snap();gest.t='pm'}
+  if(gest.t==='pm'&&ptrs.size===1){const pc=byId(ui.sel);if(pc){movePiece(pc,(p.x-gest.lx)/view.s,(p.y-gest.ly)/view.s);gest.lx=p.x;gest.ly=p.y;rebuild();draw()}return}
   if(gest.t==='drag0'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>5){snap();gest.t='drag';gest.cx=st.cursor.x;gest.cy=st.cursor.y}
   if(gest.t==='drag'&&ptrs.size===1){st.cursor.x=Math.round((gest.cx+(p.x-gest.x0)/view.s)/5)*5;st.cursor.y=Math.round((gest.cy+(p.y-gest.y0)/view.s)/5)*5;draw();renderCtx();return}
   if(gest.t==='tap'&&Math.hypot(p.x-gest.x0,p.y-gest.y0)>7)gest.t='pan';
@@ -957,6 +960,8 @@ cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;const p=p
     view.s=s;view.ox=m.x-wx*s;view.oy=m.y-wy*s;draw()}});
 function up(e){if(!ptrs.has(e.pointerId))return;const p=ptrs.get(e.pointerId);
   if(gest&&(gest.t==='tap'||gest.t==='drag0')&&ptrs.size===1)tap(p.x,p.y);
+  if(gest&&gest.t==='pm0'&&ptrs.size===1){tap(p.x,p.y);if(!ui.sel)setPieceMove(false);else renderCtx()}
+  if(gest&&gest.t==='pm'){const pc=byId(ui.sel);if(pc&&dockPiece(pc))toast('Angedockt');changed()}
   if(gest&&gest.t==='drag'){setStartMode(false);changed()}
   if(gest&&gest.t==='move'){changed()}
   if(gest&&(gest.t==='pan'||gest.t==='pinch'||gest.t==='none'))saveView();
@@ -998,6 +1003,12 @@ function renderCtx(){
     <button class="btn primary" data-a="jflex">Mit Flexgleis verbinden</button><button class="btn" data-a="jno">Abbrechen</button>`;return}
   if(ui.mode==='move'){el.innerHTML=`<div class="ctx-name"><b>Gleisplan verschieben</b><span>Mit einem Finger ziehen, mit zwei zoomen</span></div>
     <button class="btn" data-a="mvC">Zentrieren</button><button class="btn" data-a="mvL" aria-label="90° gegen den Uhrzeigersinn">↺ 90°</button><button class="btn" data-a="mvR" aria-label="90° im Uhrzeigersinn">↻ 90°</button><button class="btn primary" data-a="mvX">Fertig</button>`;return}
+  if(ui.mode==='pmove'&&!pc){ui.mode=null;$('modeHint').hidden=true}
+  if(ui.mode==='pmove'&&pc){const p=partOf(pc),fr=G.get(pc.id).conns.filter((c,ci)=>!links.has(key(pc.id,ci))).length;
+    el.innerHTML=`<div class="ctx-name"><b>${pname(p)} verschieben</b><span>Ziehen · nahe an ein freies Ende ziehen zum Andocken · ${fr<G.get(pc.id).conns.length?'drehen um das verbundene Ende':'lose'}</span></div>
+    <button class="btn" data-a="prl" aria-label="15° gegen den Uhrzeigersinn">↺ 15°</button><button class="btn" data-a="prr" aria-label="15° im Uhrzeigersinn">↻ 15°</button>
+    <button class="btn" data-a="pr1l" aria-label="1° gegen den Uhrzeigersinn">↺ 1°</button><button class="btn" data-a="pr1r" aria-label="1° im Uhrzeigersinn">↻ 1°</button>
+    <button class="btn primary" data-a="pmvX">Fertig</button>`;return}
   if(pc){const g=G.get(pc.id),p=g.p,gr=g.grade,cls=Math.abs(gr)>4?'bad':Math.abs(gr)>3?'warn':'';
     el.innerHTML=`<div class="ctx-name"><b>${pname(p)}</b><span>${p.art?SYS[pc.sys].name+' · Art. '+artOf(pc,p):pc.cu?'Eigenes Maß':SYS[pc.sys].name} · ${fmt(g.len/10)} cm</span></div>
     ${flat(p)?'':`<div class="stepper"><span>Steigung</span><button data-a="g-" aria-label="Steigung verringern">−</button><output class="${cls}">${fmt(gr)} %</output><button data-a="g+" aria-label="Steigung erhöhen">+</button></div>`}
@@ -1011,6 +1022,7 @@ function renderCtx(){
     <button class="btn" data-a="hid" aria-pressed="${!!pc.hid}" title="Gleis liegt im Tunnel oder unter Landschaft">Verdeckt</button>
     ${p.fn==='iso'?`<button class="btn" data-a="iso2" aria-pressed="${!!pc.iso2}">${pc.iso2?'Beidseitig getrennt':'Einseitig getrennt'}</button>`:''}
     <button class="btn" data-a="ins">Davor einfügen</button>
+    <button class="btn" data-a="pmv" title="Nur dieses Gleis verschieben oder drehen">✥ Verschieben</button>
     <button class="btn danger" data-a="del">Löschen</button><button class="btn" data-a="x" aria-label="Auswahl aufheben">✕</button>`;
   }else if(insJoint()){const J=insJoint(),o=byId(J.other.id);
     el.innerHTML=`<div class="ctx-name"><b>Einfügen am Stoß</b><span>${J.fixed?'Gleis wählen · Strang wird angepasst':'Strangende · Gleis wählen'}</span></div>
@@ -1039,6 +1051,8 @@ $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(a==='x'){ui.sel=null;changed(false);return}
   if(a==='jflex'){useFlexForJoin();return}if(a==='jno'){ui.pendJoin=null;changed(false);return}
   if(a==='mv'){setMoveMode(true);return}if(a==='mvX'){setMoveMode(false);return}
+  if(a==='pmv'&&pc){setPieceMove(true);return}if(a==='pmvX'){setPieceMove(false);return}
+  if(pc&&(a==='prl'||a==='prr'||a==='pr1l'||a==='pr1r')){snap();rotPiece(pc,{prl:-15,prr:15,pr1l:-1,pr1r:1}[a]);dockPiece(pc);changed();return}
   if(a==='mvC'){centerPlan();return}if(a==='mvL'){rotatePlan(-90);return}if(a==='mvR'){rotatePlan(90);return}
   if(a==='icancel'){ui.ins=null;changed(false);return}
   if(a==='iflip'&&ui.ins){const o=byId(ui.ins.id),n=localConns(partOf(o),o.d).length;ui.ins.ci=(ui.ins.ci+1)%n;changed(false);return}
@@ -1104,7 +1118,7 @@ function setMarkMode(k){if(ui.mode==='mark'&&ui.markK===k){ui.mode=null;ui.markK
   renderPalette();draw()}
 function setDir(d){ui.dir=d;$('dirL').setAttribute('aria-pressed',d===-1);$('dirR').setAttribute('aria-pressed',d===1);renderPalette();save()}
 $('dirL').onclick=()=>setDir(-1);$('dirR').onclick=()=>setDir(1);
-$('modeHint').onclick=()=>{if(ui.mode==='move')setMoveMode(false);else if(ui.mode==='join')setJoinMode(false);else if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
+$('modeHint').onclick=()=>{if(ui.mode==='pmove')setPieceMove(false);else if(ui.mode==='move')setMoveMode(false);else if(ui.mode==='join')setJoinMode(false);else if(ui.mode==='mark')setMarkMode(ui.markK);else if(ui.mode==='start')setStartMode(false)};
 function setStartMode(on){if(on&&ui.mode==='mark'){ui.markK=null;renderPalette()}ui.mode=on?'start':null;$('modeHint').hidden=!on;if(on)$('modeHint').textContent='Auf die Platte tippen oder den gelben Pfeil ziehen';$('startBtn').setAttribute('aria-pressed',on);draw()}
 $('startBtn').onclick=()=>{if(ui.view3){setView(false)}
   if(ui.mode==='start'){setStartMode(false);return}
@@ -2028,6 +2042,22 @@ function rotatePlan(deg){if(!st.pieces.length)return;snap();const b=planBB(),cx=
   for(const pc of st.pieces){rot(pc);pc.r=wrap(pc.r+a);if(pc.att){rot(pc.att);pc.att.a=wrap(pc.att.a+a)}}
   rot(st.cursor);st.cursor.a=wrap(st.cursor.a+a);rebuild();changed();toast(`Gleisplan um ${Math.abs(deg)}° ${deg>0?'im':'gegen den'} Uhrzeigersinn gedreht`)}
 function planOffBoard(){if(!st.pieces.length)return false;const b=planBB();return b[0]<-1||b[1]<-1||b[2]>st.board.w+1||b[3]>st.board.d+1}
+// Einzelnes Gleis verschieben/drehen; beim Loslassen an ein nahes freies Ende andocken
+function setPieceMove(on){if(on){if(ui.view3)setView(false);if(ui.mode==='start')setStartMode(false);if(ui.mode==='mark')setMarkMode(ui.markK);if(ui.mode==='join')setJoinMode(false);ui.ins=null}
+  ui.mode=on?'pmove':null;const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Gleis mit dem Finger ziehen · ✕ hier fertig';renderCtx();draw()}
+function movePiece(pc,dx,dy){pc.x+=dx;pc.y+=dy;if(pc.att){pc.att.x+=dx;pc.att.y+=dy}}
+function rotPieceAbout(pc,cx,cy,a){const c=Math.cos(a),sn=Math.sin(a),rot=o=>{const dx=o.x-cx,dy=o.y-cy;o.x=cx+c*dx-sn*dy;o.y=cy+sn*dx+c*dy};
+  rot(pc);pc.r=wrap(pc.r+a);if(pc.att){rot(pc.att);pc.att.a=wrap(pc.att.a+a)}}
+function rotPiece(pc,deg){const g=G.get(pc.id),lk=g.conns.filter((c,ci)=>links.has(key(pc.id,ci)));   // hängt es an genau einem Ende, um dieses Ende drehen
+  if(lk.length===1)rotPieceAbout(pc,lk[0].x,lk[0].y,deg*DEG);else{const b=g.bb;rotPieceAbout(pc,(b[0]+b[2])/2,(b[1]+b[3])/2,deg*DEG)}rebuild()}
+function dockPiece(pc){rebuild();const g=G.get(pc.id);let best=null;
+  g.conns.forEach((c,ci)=>{if(links.has(key(pc.id,ci)))return;
+    for(const o of openC){if(o.id===pc.id)continue;const oc=G.get(o.id).conns[o.ci],d=Math.hypot(oc.x-c.x,oc.y-c.y),da=Math.abs(wrap(oc.a+PI-c.a));
+      if(d<10&&da<15*DEG&&Math.abs(oc.z-c.z)<10&&(!best||d<best.d))best={d,c,oc}}});
+  if(!best)return false;
+  const da=wrap(best.oc.a+PI-best.c.a);rotPieceAbout(pc,best.c.x,best.c.y,da);rebuild();
+  const c2=G.get(pc.id).conns.reduce((m,c)=>!m||Math.hypot(c.x-best.oc.x,c.y-best.oc.y)<Math.hypot(m.x-best.oc.x,m.y-best.oc.y)?c:m,null);
+  movePiece(pc,best.oc.x-c2.x,best.oc.y-c2.y);rebuild();return true}
 function setMoveMode(on){if(on){if(ui.view3)setView(false);if(ui.mode==='start')setStartMode(false);if(ui.mode==='mark')setMarkMode(ui.markK);if(ui.mode==='join')setJoinMode(false);ui.sel=null;ui.ins=null}
   ui.mode=on?'move':null;const h=$('modeHint');h.hidden=!on;if(on)h.textContent='Gleisplan mit dem Finger verschieben · ✕ hier fertig';renderCtx();draw()}
 
@@ -2089,7 +2119,7 @@ function init(){
   new MutationObserver(re).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 }
 init();
-window.__plan={get:()=>JSON.stringify({v:1,st}),
+window.__plan={get:()=>JSON.stringify({v:1,st}),_t:()=>({st,G,links,openC,ui,sx,sy,partOf}),
   load(txt){const o=JSON.parse(txt);if(!o.st||!Array.isArray(o.st.pieces))throw new Error('kein Plan');snap();st=o.st;ui.sel=null;rebuild();$('sheet').hidden=true;changed()},
   toast:t=>toast(t)};
 })();
