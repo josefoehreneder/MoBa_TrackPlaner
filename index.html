@@ -1854,6 +1854,67 @@ function loadTemplateKS(){
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
 }
 
+/* ---------- Vorlage: Kehrschleife mit Bahnhof oben (E1), Gleiswendel über E0, Kehrschleife unten (E−1), 130 × 50 cm ---------- */
+// Links zwei Kehrschleifen übereinander: oben (Ebene 1) mit 2-gleisigem Bahnhof, unten (Ebene −1).
+// Dazwischen fährt die Strecke zwei Runden um die Platte (zusätzliche Ebene 0) und fällt dabei gleichmäßig.
+function loadTemplateKS2(){
+  const F='flnb',keepSys=ui.sys;ui.sys=F;
+  const K=Object.assign({H:40,yF:470,xC:1093,L2:['S104.2','S17.2'],bahn:['S104.2','S54.2','S33.6']},window.__KS2||{});
+  const R1=194.6;
+  st={board:{w:1300,d:500},pieces:[],cursor:{x:0,y:0,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
+  const keep=ui.cont;ui.cont=false;rebuild();
+  const P=id=>SYS[F].parts.find(p=>p.id===id);
+  const put=(pid,dd=1,cu=null)=>{const pc=placeRaw(F,pid,cu,dd);st.active={type:'conn',id:pc.id,ci:1};return pc};
+  const trail=(pid,side)=>{const T=target(),saved={...st.active};for(const dd of[1,-1]){st.active={...saved};const pc=placeRaw(F,pid,null,dd);pc.k=1;setTransform(pc);rebuild();
+    const c2=G.get(pc.id).conns[2],sd=Math.sign(Math.cos(T.a)*(c2.y-T.y)-Math.sin(T.a)*(c2.x-T.x));if(sd===side){st.active={type:'conn',id:pc.id,ci:0};return pc}st.pieces=st.pieces.filter(q=>q!==pc);rebuild()}
+    throw new Error('Weiche passt nicht')};
+  const catJoin=(A2,B2,R)=>{if(links.has(key(A2.id,A2.ci)))return [];const sol=findCatalogJoin(A2,B2,F),n=st.pieces.length;
+    if(sol&&sol.seq.length<=4){st.active={type:'conn',id:A2.id,ci:A2.ci};for(const q of sol.seq){const pc=q.v?placeRaw(F,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(F,q.id,null,q.d);st.active={type:'conn',id:pc.id,ci:1}}
+      rebuild();if(links.has(key(B2.id,B2.ci)))return st.pieces.slice(n);st.pieces=st.pieces.slice(0,n);rebuild()}
+    joinFlex(A2,B2,R);return st.pieces.slice(n)};
+  const cut=(len)=>{const base=[17.2,33.6,50,54.2,104.2].find(v=>v>=len-0.05)||104.2,art={17.2:'22207',33.6:'22206',50:'22205',54.2:'22204',104.2:'22203'}[base];
+    return put(null,1,{id:'cK'+art+'-'+len.toFixed(1),t:'S',L:+len.toFixed(2),vname:'Gerade '+String(base).replace('.',',')+' mm, gekürzt auf '+len.toFixed(1).replace('.',',')+' mm',art})};
+  const fill=(len)=>{const out=[];let r=len;for(const [id,v] of [['S312.6',312.6],['S104.2',104.2],['S54.2',54.2],['S50',50],['S33.6',33.6],['S17.2',17.2]])while(r>=v-0.3){out.push(put(id));r-=v}
+    if(r>0.6)out.push(cut(r));return out};
+  // Kehrschleife (Weiche 24°, Gegenbogen, Viertelkreis, Gerade oben, Halbkreis); bahn=true: Bahnhof auf dem geraden Strang
+  const loop=(x,y,s,bahn)=>{st.active={type:'cursor'};st.cursor={x,y,a:Math.PI,z:0};
+    const w=put('W24',s);st.active={type:'conn',id:w.id,ci:2};
+    const all=[w];const A=a=>{all.push(...a);return a};
+    A([put('C194.6-30',s),put('C194.6-30',s),put('C194.6-6',s)]);A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);A(K.L2.map(q=>put(q)));
+    const h1=A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);const ce=G.get(h1[2].id).conns[1];const hs=A([cut(Math.abs(ce.y-y)-R1)])[0];
+    A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);
+    let st1=null;
+    if(bahn){const b1=put('W15',s),bm=K.bahn.map(q=>put(q)),b2=trail('W15',s);A([b1,...bm,b2]);
+      const e=G.get(b2.id).conns[0],c1=G.get(w.id).conns[1];A(fill(Math.abs(c1.x-e.x)));
+      st.active={type:'conn',id:b1.id,ci:2};const pa=put('C362.6-15',-s);const pj=catJoin({id:pa.id,ci:1},{id:b2.id,ci:2},362.6);A([pa,...pj]);
+      st1={b1,b2,pa,pj,bm}}
+    else{const e=G.get(all[all.length-1].id).conns[1],c1=G.get(w.id).conns[1];A(fill(Math.abs(c1.x-e.x)))}
+    return {w,hs,all,st1}};
+  const yB=K.yF-2*R1,xT=12+609+K.L2.reduce((a,q)=>a+lenOf(P(q)),0)+5;
+  const up=loop(xT,yB,-1,true);             // oben, Ebene 1, mit Bahnhof
+  const lo=loop(xT,K.yF,1,false);           // unten, Ebene −1
+  // Wendel: zwei Runden von der oberen zur unteren Schleife
+  const n0=st.pieces.length;st.active={type:'conn',id:up.w.id,ci:0};
+  const run=()=>{const a=st.pieces[st.pieces.length-1];fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);};
+  fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);fill(K.xC-xT);       // Runde 1: hinten, rechts, vorne
+  const nL=st.pieces.length;for(let i=0;i<6;i++)put('C194.6-30',1);         // links (zwischen den beiden Schleifen)
+  fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);
+  const last=st.pieces[st.pieces.length-1],ce=G.get(last.id).conns[1],cl=G.get(lo.w.id).conns[0];fill(Math.abs(ce.x-cl.x));
+  const hel=st.pieces.slice(n0),second=st.pieces.slice(nL);
+  ui.cont=keep;rebuild();
+  {const L=hel.reduce((a,q)=>a+lenOf(partOf(q)),0);let z=K.H;for(const pc of hel){pc.att.z=z;pc.z0=z;pc.rise=+(-2*K.H*lenOf(partOf(pc))/L).toFixed(3);z+=pc.rise}
+   for(const pc of up.all){pc.att.z=K.H;pc.z0=K.H;pc.rise=0}
+   for(const pc of lo.all){pc.att.z=-K.H;pc.z0=-K.H;pc.rise=0;pc.hid=true}
+   for(const pc of second)pc.hid=true}
+  rebuild();
+  const b=planBB();shiftAll(Math.round((st.board.w-b[0]-b[2])/2),Math.round((st.board.d-b[1]-b[3])/2));rebuild();
+  const S1=up.st1;
+  st.marks=[{id:up.w.id,ci:1,k:'iso2'},{id:up.w.id,ci:2,k:'iso2'},{id:up.hs.id,ci:0,k:'feed'},
+    {id:lo.w.id,ci:1,k:'iso2'},{id:lo.w.id,ci:2,k:'iso2'},{id:lo.hs.id,ci:0,k:'feed'},
+    {id:hel[0].id,ci:1,k:'feed'},{id:S1.pa.id,ci:0,k:'iso1'},{id:S1.pa.id,ci:1,k:'feed'},{id:(S1.pj.length?S1.pj[S1.pj.length-1]:S1.pa).id,ci:1,k:'iso1'}];
+  st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
+}
+
 /* ---------- Vorlage: Zwei-Ebenen-Spirale 90 × 60 cm, Minitrix, analog ---------- */
 // Spirale aus R2 (außen) und R1 (innen): unten Schattenbahnhof (2 Gleise, E0),
 // oben sichtbarer Bahnhof (2 Gleise, E1). Links kreuzen sich die beiden Übergänge (Brücke).
@@ -1951,7 +2012,7 @@ function openProject(id){saveProject();const e=projIndex().find(q=>q.id===id),d=
   applyProject(e,d,false);$('sheet').hidden=true;toast(`„${e.name}“ geöffnet`)}
 function createProject(name,sys,w,d,sample){saveProject();
   const e={id:newId(),name:name||'Neues Projekt'};
-  if(sample==='kl')loadTemplateKlein();else if(sample==='klk')loadTemplateKlein(50,'kehre');else if(sample==='klnb')loadTemplateKleinNB();else if(sample==='s8')loadTemplateSuper8();else if(sample==='ks')loadTemplateKS();else if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
+  if(sample==='kl')loadTemplateKlein();else if(sample==='klk')loadTemplateKlein(50,'kehre');else if(sample==='klnb')loadTemplateKleinNB();else if(sample==='s8')loadTemplateSuper8();else if(sample==='ks')loadTemplateKS();else if(sample==='ks2')loadTemplateKS2();else if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
   applyProject(e,{st,sys},true);saveProject();$('sheet').hidden=true;toast(`Projekt „${e.name}“ angelegt`)}
 function duplicateProject(id){saveProject();const src=loadProjectData(id),idx=projIndex(),e0=idx.find(q=>q.id===id);if(!src||!e0)return;
   const id2=newId();lsSet('nplan.p.'+id2,src);idx.push(Object.assign({},e0,{id:id2,name:e0.name+' (Kopie)',created:Date.now(),updated:Date.now()}));lsSet(PIDX,idx);openProjects()}
@@ -1980,6 +2041,7 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
      <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
      <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option>
      <option value="klk">Kleinstanlage, Kehre zum Schattenbahnhof mit Umfahrgleis, 100 × 60 cm (Fleischmann piccolo, analog)</option>
+     <option value="ks2">Kehrschleife mit Bahnhof oben, Wendel, Kehrschleife unten, 130 × 50 cm (Fleischmann ohne Bettung, analog)</option>
      <option value="ks">Hundeknochen: 2 Kehrschleifen übereinander, 2-gleisiger Bahnhof, 130 × 50 cm (Fleischmann ohne Bettung, analog)</option>
      <option value="s8">Super-8 mit umlaufendem Oval, Verbindung und 2-gleisigem Bahnhof, 120 × 60 cm (Fleischmann ohne Bettung, analog)</option>
      <option value="klnb">Kleinstanlage mit Kehre, alles Fleischmann ohne Bettung, 100 × 60 cm (analog)</option></select></label>
@@ -1990,8 +2052,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
       ({open:()=>openProject(id),dup:()=>duplicateProject(id),del:()=>{c.hidden=false},deln:()=>{c.hidden=true},dely:()=>deleteProject(id)})[b.dataset.p]()}));
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('npW').value=b.dataset.bw;$('npD').value=b.dataset.bd});
     $('npGo').onclick=()=>{const w=parseFloat($('npW').value),d=parseFloat($('npD').value);if(!(w>=20&&d>=20)){toast('Plattengröße in cm angeben (mind. 20 cm)');return}
-      const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof',klk:'Kleinstanlage mit Kehre',klnb:'Kleinstanlage ohne Bettung',s8:'Super-8 mit Oval',ks:'Hundeknochen 130 × 50'}[tp]||''),tp==='klnb'||tp==='s8'||tp==='ks'?'flnb':tp==='kl'||tp==='klk'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
-    $('npTpl').onchange=()=>{if($('npTpl').value==='ks'){$('npW').value=130;$('npD').value=50;$('npSys').value='flnb'}else if($('npTpl').value==='s8'){$('npW').value=120;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klnb'){$('npW').value=100;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klk'){$('npW').value=100;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
+      const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof',klk:'Kleinstanlage mit Kehre',klnb:'Kleinstanlage ohne Bettung',s8:'Super-8 mit Oval',ks:'Hundeknochen 130 × 50',ks2:'Kehrschleifen mit Wendel 130 × 50'}[tp]||''),tp==='klnb'||tp==='s8'||tp==='ks'||tp==='ks2'?'flnb':tp==='kl'||tp==='klk'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
+    $('npTpl').onchange=()=>{if($('npTpl').value==='ks2'||$('npTpl').value==='ks'){$('npW').value=130;$('npD').value=50;$('npSys').value='flnb'}else if($('npTpl').value==='s8'){$('npW').value=120;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klnb'){$('npW').value=100;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klk'){$('npW').value=100;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
   })}
 $('brandBtn').onclick=openProjects;
 
