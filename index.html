@@ -1576,6 +1576,56 @@ function makeTrain3D(){const grp=new THREE.Group();T3.scene.add(grp);T3.train=gr
 function updateTrain3D(){if(!T3)return;if(!T3.train)makeTrain3D();const grp=T3.train;grp.visible=SIM.on&&validTrail();if(!grp.visible)return;
   carPoses().forEach((q,i)=>{const g=grp.children[i];g.position.set(q.x,q.z+4.6,q.y);g.rotation.set(0,-q.h,q.pitch,'YZX')})}
 
+/* ---------- Vorlage: Zwei-Ebenen-Spirale 90 × 60 cm, Minitrix, analog ---------- */
+// Spirale aus R2 (außen) und R1 (innen): unten Schattenbahnhof (2 Gleise, E0),
+// oben sichtbarer Bahnhof (2 Gleise, E1). Links kreuzen sich die beiden Übergänge (Brücke).
+function loadTemplate2E(H=45){
+  const M='minitrix',bw=900,bd=600,cxL=249.8,cy=277.6;
+  st={board:{w:bw,d:bd},pieces:[],cursor:{x:cxL+33.6,y:cy+228.2,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
+  const keep=ui.cont;ui.cont=false;rebuild();
+  const main=[],add=(pid,d=1)=>{const pc=placeRaw(M,pid,null,d);main.push(pc);st.active={type:'conn',id:pc.id,ci:1};return pc};
+  // nachlaufende Weiche: mit dem geraden Ende (Anschluss 1) ansetzen; Abzweig zur Seite side (+1 = rechts der Fahrtrichtung in y-unten-Koordinaten)
+  const trailW=(pid,side)=>{const T=target(),saved={...st.active};
+    for(const d of[1,-1]){st.active={...saved};const pc=placeRaw(M,pid,null,d);pc.k=1;setTransform(pc);rebuild();
+      const c2=G.get(pc.id).conns[2],sd=Math.sign(Math.cos(T.a)*(c2.y-T.y)-Math.sin(T.a)*(c2.x-T.x));
+      if(sd===side){main.push(pc);st.active={type:'conn',id:pc.id,ci:0};return pc}
+      st.pieces=st.pieces.filter(q=>q!==pc);rebuild()}
+    throw new Error('Weiche passt nicht')};
+  // Bahnhof unten (Schattenbahnhof), Fahrtrichtung +x
+  const wl=add('W24',1);add('S104.2');const sMid=add('S54.2');
+  const wr=trailW('W24',1);
+  for(let i=0;i<6;i++)add('C228.2-30',-1);                       // rechts außen hoch
+  add('S312.6');add('S54.2');add('S33.6');                        // hinten außen hoch
+  for(let i=0;i<3;i++)add('C228.2-30',-1);                       // Übergang A: R2 90° …
+  for(let i=0;i<3;i++)add('C194.6-30',-1);                       // … dann R1 90° (oben)
+  const wl2=add('W24',-1);add('S104.2');add('S54.2');add('S50');add('S17.2');   // Bahnhof oben
+  const wr2=trailW('W24',-1);
+  for(let i=0;i<6;i++)add('C194.6-30',-1);                       // rechts innen runter
+  add('S312.6');add('S54.2');add('S33.6');                        // hinten innen runter
+  for(let i=0;i<3;i++)add('C194.6-30',-1);                       // Übergang B: R1 90° …
+  for(let i=0;i<3;i++)add('C228.2-30',-1);                       // … dann R2 90° zurück in den Schattenbahnhof
+  // Abstellgleise
+  const sid=[];const addS=(pid,d)=>{const pc=placeRaw(M,pid,null,d);sid.push(pc);st.active={type:'conn',id:pc.id,ci:1};return pc};
+  st.active={type:'conn',id:wl.id,ci:2};const s1=addS('C194.6-24',-1);const s1e=addS('C194.6-24',-1);
+  st.active={type:'conn',id:wl2.id,ci:2};const u1=addS('C194.6-24',1);addS('S50',1);addS('S17.2',1);const u1e=addS('C194.6-24',1);
+  ui.cont=keep;
+  // Höhen: unten flach – Rampe hoch – oben flach – Rampe runter – unten flach
+  const len=pc=>lenOf(partOf(pc)),seg=(a,b)=>main.slice(a,b);
+  const iA=main.indexOf(wr)+1,iTop=iA+6+3+3,iTopEnd=main.indexOf(wr2)+1+0,iDown=iTopEnd,iDownEnd=iDown+6+3+3;
+  const up=seg(iA,iTop),down=seg(iDown,iDownEnd);
+  const Lup=up.reduce((a,q)=>a+len(q),0),Ldn=down.reduce((a,q)=>a+len(q),0);
+  let z=0;main.forEach((pc,i)=>{let r=0;if(i>=iA&&i<iTop)r=H*len(pc)/Lup;else if(i>=iDown&&i<iDownEnd)r=-H*len(pc)/Ldn;
+    pc.att.z=z;pc.z0=z;pc.rise=flat(partOf(pc))?0:+r.toFixed(3);if(pc.k===1){pc.z0=z}z+=pc.rise});
+  for(const pc of sid){const zz=sid.indexOf(pc)<2?0:H;pc.att.z=zz;pc.z0=zz;pc.rise=0}
+  rebuild();
+  // Analog: Abstellgleise und Hauptgleis im Schattenbahnhof abschaltbar, Einspeisungen
+  st.marks=[{id:s1.id,ci:0,k:'iso1'},{id:s1e.id,ci:1,k:'iso1'},{id:u1.id,ci:0,k:'iso1'},{id:u1e.id,ci:1,k:'iso1'},
+    {id:main[1].id,ci:0,k:'iso1'},{id:sMid.id,ci:1,k:'iso1'},
+    {id:s1.id,ci:1,k:'feed'},{id:u1.id,ci:1,k:'feed'},{id:main[1].id,ci:1,k:'feed'},
+    {id:main[iA+6].id,ci:0,k:'feed'},{id:main[iDown+6].id,ci:0,k:'feed'}];
+  st.active=null;ui.sel=null;rebuild();
+}
+
 /* ---------- Beispiel ---------- */
 function loadSample(bw=1500,bd=700){
   st={board:{w:bw,d:bd},pieces:[],cursor:{x:502,y:636,a:0,z:0},active:{type:'cursor'},nid:1};
@@ -1623,7 +1673,7 @@ function openProject(id){saveProject();const e=projIndex().find(q=>q.id===id),d=
   applyProject(e,d,false);$('sheet').hidden=true;toast(`„${e.name}“ geöffnet`)}
 function createProject(name,sys,w,d,sample){saveProject();
   const e={id:newId(),name:name||'Neues Projekt'};
-  if(sample){loadSample(w*10,d*10)}else st=emptySt(w*10,d*10);
+  if(sample==='2e')loadTemplate2E();else if(sample)loadSample(w*10,d*10);else st=emptySt(w*10,d*10);
   applyProject(e,{st,sys},true);saveProject();$('sheet').hidden=true;toast(`Projekt „${e.name}“ angelegt`)}
 function duplicateProject(id){saveProject();const src=loadProjectData(id),idx=projIndex(),e0=idx.find(q=>q.id===id);if(!src||!e0)return;
   const id2=newId();lsSet('nplan.p.'+id2,src);idx.push(Object.assign({},e0,{id:id2,name:e0.name+' (Kopie)',created:Date.now(),updated:Date.now()}));lsSet(PIDX,idx);openProjects()}
@@ -1646,7 +1696,10 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
    <label class="field" style="margin-top:8px">Gleissystem<select id="npSys">${Object.entries(SYS).filter(([k,v])=>!v.hide).map(([k,v])=>`<option value="${k}"${k===ui.sys?' selected':''}>${v.name}</option>`).join('')}</select></label>
    <div class="quick">${PRESETS.map(q=>`<button class="btn" data-bw="${q[1]}" data-bd="${q[2]}">${q[0]}</button>`).join('')}</div>
    <div class="fields" style="margin-top:8px"><label class="field">Breite (cm)<input id="npW" type="number" inputmode="decimal" value="150"></label><label class="field">Tiefe (cm)<input id="npD" type="number" inputmode="decimal" value="70"></label></div>
-   <label class="chk"><input type="checkbox" id="npSample"> Mit Beispiel-Oval beginnen (Minitrix)</label>
+   <label class="field" style="margin-top:8px">Vorlage<select id="npTpl">
+     <option value="">Leer beginnen</option>
+     <option value="oval">Beispiel-Oval mit Ausweiche (Minitrix)</option>
+     <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
     const nm=$('pjName');nm.onchange=()=>{proj.name=nm.value.trim()||'Ohne Namen';updProjTitle();saveProject();draw()};
@@ -1654,7 +1707,8 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
       ({open:()=>openProject(id),dup:()=>duplicateProject(id),del:()=>{c.hidden=false},deln:()=>{c.hidden=true},dely:()=>deleteProject(id)})[b.dataset.p]()}));
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('npW').value=b.dataset.bw;$('npD').value=b.dataset.bd});
     $('npGo').onclick=()=>{const w=parseFloat($('npW').value),d=parseFloat($('npD').value);if(!(w>=20&&d>=20)){toast('Plattengröße in cm angeben (mind. 20 cm)');return}
-      createProject($('npName').value.trim(),$('npSys').value,w,d,$('npSample').checked)};
+      const tp=$('npTpl').value;createProject($('npName').value.trim()||(tp==='2e'?'Zwei-Ebenen-Anlage':''),tp?'minitrix':$('npSys').value,w,d,tp)};
+    $('npTpl').onchange=()=>{if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
   })}
 $('brandBtn').onclick=openProjects;
 
