@@ -1745,15 +1745,16 @@ function loadTemplateKleinNB(){
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
 }
 
-/* ---------- Vorlage: Super-8 mit umlaufendem Oval und 2-gleisigem Bahnhof, ohne Bettung (100 × 60 cm) ---------- */
-// Innen eine Acht aus R1 (2 × 300°) mit Brücke in der Mitte, außen ein Oval in R2 mit Ausweichbahnhof vorne.
-// Zwei getrennte Stromkreise (analog: 2 Fahrregler), kein Schattenbahnhof, keine Oberleitung.
+/* ---------- Vorlage: Super-8 mit umlaufendem Oval, Verbindung und 2-gleisigem Bahnhof, ohne Bettung (120 × 60 cm) ---------- */
+// Innen eine Acht aus R1 mit Brücke in der Mitte; die linke Schleife ist oben und unten um 21,7 cm gestreckt.
+// Unten links liegt die Acht eben auf Höhe des Ovals und ist dort über einen Gleiswechsel mit ihm verbunden.
+// Außen ein Oval in R2 mit Ausweichbahnhof hinten. Kein Schattenbahnhof, keine Oberleitung.
 function loadTemplateSuper8(){
   const F='flnb',keepSys=ui.sys;ui.sys=F;
-  const S8=Object.assign({H:36,diag:['S104.2','S17.2','S104.2'],bahn:['S104.2','S104.2','S33.6'],cx:500,cy:290},window.__S8||{});
-  const R1=194.6,DEGr=Math.PI/180,L=2*R1/Math.tan(60*DEGr),d=R1/Math.sin(60*DEGr);
+  const S8=Object.assign({H:36,cx:640,cy:300,bahn:['S104.2','S104.2','S33.6'],top:['S54.2','S54.2','S54.2','S54.2'],bot:['S104.2']},window.__S8||{});
+  const R1=194.6,R2=228.2,DEGr=Math.PI/180,L=2*R1/Math.tan(60*DEGr),d=R1/Math.sin(60*DEGr);
   const th=-60*DEGr,x0=S8.cx-L/2*Math.cos(th),y0=S8.cy-L/2*Math.sin(th);
-  st={board:{w:1000,d:600},pieces:[],cursor:{x:x0,y:y0,a:th,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
+  st={board:{w:1200,d:600},pieces:[],cursor:{x:x0,y:y0,a:th,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
   const put=(pid,dd=1,cu=null)=>{const pc=placeRaw(F,pid,cu,dd);st.active={type:'conn',id:pc.id,ci:1};return pc};
   const trail=(pid,side)=>{const T=target(),saved={...st.active};for(const dd of[1,-1]){st.active={...saved};const pc=placeRaw(F,pid,null,dd);pc.k=1;setTransform(pc);rebuild();
@@ -1763,31 +1764,36 @@ function loadTemplateSuper8(){
     if(sol&&sol.seq.length<=5){st.active={type:'conn',id:A2.id,ci:A2.ci};for(const q of sol.seq){const pc=q.v?placeRaw(F,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(F,q.id,null,q.d);st.active={type:'conn',id:pc.id,ci:1}}
       rebuild();if(links.has(key(B2.id,B2.ci)))return st.pieces.slice(n);st.pieces=st.pieces.slice(0,n);rebuild()}
     joinFlex(A2,B2,R);return st.pieces.slice(n)};
-  // Acht: Diagonale unten (Mitte auf 0), rechte Schleife steigt, Diagonale oben (Mitte auf +H, Brücke), linke Schleife fällt
-  // Diagonale: 104,2 + gekürztes 17,2er (16,3 mm) + 104,2 = ideale Länge, damit die Acht genau schließt
+  // Diagonale: 104,2 + gekürztes 17,2er + 104,2 = ideale Länge, damit die Acht genau schließt
   const dg=()=>[put('S104.2'),put(null,1,{id:'cK22207',t:'S',L:+(L-208.4).toFixed(2),vname:'Gerade 17,2 mm, gekürzt auf '+(L-208.4).toFixed(1).replace('.',',')+' mm',art:'22207'}),put('S104.2')];
-  const d1=dg(),lr=[];for(let i=0;i<10;i++)lr.push(put('C194.6-30',1));
-  const d2=dg(),ll=[];for(let i=0;i<10;i++)ll.push(put('C194.6-30',-1));const fl=[];
-  { const mid=1,up=[...d1.slice(mid+1),...lr,...d2.slice(0,mid)],dn=[...d2.slice(mid+1),...ll,...fl,...d1.slice(0,mid)];
+  const C1=dd=>put('C194.6-30',dd);
+  const d1=dg(),lr=[];for(let i=0;i<10;i++)lr.push(C1(1));
+  const d2=dg(),lA=[C1(-1),C1(-1)],lT=S8.top.map(q=>put(q)),lB=[];for(let i=0;i<6;i++)lB.push(C1(-1));
+  const lS=S8.bot.map(q=>put(q)),wx=put('W15',1),lC=[C1(-1),C1(-1)];        // unten: Weiche zum Oval (zweigt nach vorne ab)
+  const sL=lenOf(partOf(wx))+lS.reduce((a,q)=>a+lenOf(partOf(q)),0);
+  { const up=[d1[2],...lr,d2[0]],dn=[d2[2],...lA,...lT,...lB],flat=[wx,...lS,...lC,d1[0],d1[1]];
     const Lu=up.reduce((a,q)=>a+lenOf(partOf(q)),0),Ld=dn.reduce((a,q)=>a+lenOf(partOf(q)),0);
-    let z=0;d1[mid].att.z=0;d1[mid].z0=0;d1[mid].rise=0;
-    for(const pc of up){pc.att.z=z;pc.z0=z;pc.rise=+(S8.H*lenOf(partOf(pc))/Lu).toFixed(3);z+=pc.rise}
-    d2[mid].att.z=S8.H;d2[mid].z0=S8.H;d2[mid].rise=0;z=S8.H;
-    for(const pc of dn){pc.att.z=z;pc.z0=z;pc.rise=+(-S8.H*lenOf(partOf(pc))/Ld).toFixed(3);z+=pc.rise}}
+    let z=0;for(const pc of up){pc.att.z=z;pc.z0=z;pc.rise=+(S8.H*lenOf(partOf(pc))/Lu).toFixed(3);z+=pc.rise}
+    d2[1].att.z=S8.H;d2[1].z0=S8.H;d2[1].rise=0;z=S8.H;
+    for(const pc of dn){pc.att.z=z;pc.z0=z;pc.rise=+(-S8.H*lenOf(partOf(pc))/Ld).toFixed(3);z+=pc.rise}
+    for(const pc of flat){pc.att.z=0;pc.z0=0;pc.rise=0}}
   rebuild();
-  // Oval außen (R2, konzentrisch zu den Schleifen der Acht); vorne Bahnhof mit Ausweichgleis nach vorne
-  const R2=228.2,crx=S8.cx+d,clx=S8.cx-d;
-  st.active={type:'cursor'};st.cursor={x:crx,y:S8.cy+R2,a:Math.PI,z:0};
-  const wr=put('W15',-1);const mainS=[];for(const q of (S8.bahn||['S104.2','S104.2','S50']))mainS.push(put(q));const wl=trail('W15',-1);
-  const left=[];for(let i=0;i<6;i++)left.push(put('C228.2-30',1));
-  st.active={type:'conn',id:wr.id,ci:0};const right=[];for(let i=0;i<6;i++)right.push(put('C228.2-30',-1));
-  const top=catJoin({id:left[5].id,ci:1},{id:right[5].id,ci:1},1e4);
-  st.active={type:'conn',id:wr.id,ci:2};const pa=put('C362.6-15',1);
-  const pj=catJoin({id:pa.id,ci:1},{id:wl.id,ci:2},362.6);
+  // Oval: rechter Bogen um die rechte Schleife, linker Bogen um das linke (gestreckte) Ende
+  // Gegenweiche des Gleiswechsels direkt an den Abzweig der Weiche in der Acht; danach richtet sich die Lage des Ovals
+  st.active={type:'conn',id:wx.id,ci:2};const wo=placeRaw(F,'W15',null,1);wo.k=2;setTransform(wo);rebuild();
+  if(!links.has(key(wo.id,2))){st.pieces=st.pieces.filter(q=>q!==wo);st.active={type:'conn',id:wx.id,ci:2};const w2=placeRaw(F,'W15',null,-1);w2.k=2;setTransform(w2);rebuild();Object.assign(wo,w2);st.pieces=st.pieces.map(q=>q===w2?wo:q);rebuild()}
+  const crx=S8.cx+d,clx=S8.cx-d-sL,yB=G.get(wo.id).conns[0].y,yT=yB-2*R2;
+  st.active={type:'cursor'};st.cursor={x:crx,y:yB,a:0,z:0};const rgt=[];for(let i=0;i<6;i++)rgt.push(put('C228.2-30',-1));
+  const wr=put('W15',1),mainS=S8.bahn.map(q=>put(q)),wl=trail('W15',1);        // hinten: Bahnhof, Ausweichgleis nach hinten
+  st.active={type:'cursor'};st.cursor={x:clx,y:yT,a:Math.PI,z:0};const lft=[];for(let i=0;i<6;i++)lft.push(put('C228.2-30',-1));
+  const topF=catJoin({id:wl.id,ci:0},{id:lft[0].id,ci:0},1e4);
+  const c0=G.get(wo.id).conns[0],c1=G.get(wo.id).conns[1],oA=c0.x>c1.x?0:1,oB=1-oA;      // oA: Ende nach rechts
+  const bL=catJoin({id:wo.id,ci:oB},{id:lft[5].id,ci:1},1e4),bR=catJoin({id:wo.id,ci:oA},{id:rgt[0].id,ci:0},1e4);
+  st.active={type:'conn',id:wr.id,ci:2};const pa=put('C362.6-15',-1);const pj=catJoin({id:pa.id,ci:1},{id:wl.id,ci:2},362.6);
   ui.cont=keep;rebuild();
   const b=planBB();shiftAll(Math.round((st.board.w-b[0]-b[2])/2),Math.round((st.board.d-b[1]-b[3])/2));rebuild();
-  st.marks=[{id:d1[0].id,ci:0,k:'feed'},
-    {id:pa.id,ci:0,k:'iso1'},{id:pa.id,ci:1,k:'feed'},{id:(pj.length?pj[pj.length-1]:pa).id,ci:1,k:'iso1'},{id:right[2].id,ci:0,k:'feed'}];
+  st.marks=[{id:d1[0].id,ci:0,k:'feed'},{id:rgt[2].id,ci:0,k:'feed'},{id:wx.id,ci:2,k:'iso1'},
+    {id:pa.id,ci:0,k:'iso1'},{id:pa.id,ci:1,k:'feed'},{id:(pj.length?pj[pj.length-1]:pa).id,ci:1,k:'iso1'}];
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
 }
 
@@ -1917,7 +1923,7 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
      <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
      <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option>
      <option value="klk">Kleinstanlage, Kehre zum Schattenbahnhof mit Umfahrgleis, 100 × 60 cm (Fleischmann piccolo, analog)</option>
-     <option value="s8">Super-8 mit umlaufendem Oval und 2-gleisigem Bahnhof, 100 × 60 cm (Fleischmann ohne Bettung, analog)</option>
+     <option value="s8">Super-8 mit umlaufendem Oval, Verbindung und 2-gleisigem Bahnhof, 120 × 60 cm (Fleischmann ohne Bettung, analog)</option>
      <option value="klnb">Kleinstanlage mit Kehre, alles Fleischmann ohne Bettung, 100 × 60 cm (analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
@@ -1927,7 +1933,7 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
     document.querySelectorAll('#sheetBody [data-bw]').forEach(b=>b.onclick=()=>{$('npW').value=b.dataset.bw;$('npD').value=b.dataset.bd});
     $('npGo').onclick=()=>{const w=parseFloat($('npW').value),d=parseFloat($('npD').value);if(!(w>=20&&d>=20)){toast('Plattengröße in cm angeben (mind. 20 cm)');return}
       const tp=$('npTpl').value;createProject($('npName').value.trim()||({'2e':'Zwei-Ebenen-Anlage',kl:'Kleinstanlage mit Schattenbahnhof',klk:'Kleinstanlage mit Kehre',klnb:'Kleinstanlage ohne Bettung',s8:'Super-8 mit Oval'}[tp]||''),tp==='klnb'||tp==='s8'?'flnb':tp==='kl'||tp==='klk'?'fleischmann':tp?'minitrix':$('npSys').value,w,d,tp)};
-    $('npTpl').onchange=()=>{if($('npTpl').value==='s8'){$('npW').value=100;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klnb'){$('npW').value=100;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klk'){$('npW').value=100;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
+    $('npTpl').onchange=()=>{if($('npTpl').value==='s8'){$('npW').value=120;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klnb'){$('npW').value=100;$('npD').value=60;$('npSys').value='flnb'}else if($('npTpl').value==='klk'){$('npW').value=100;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='kl'){$('npW').value=90;$('npD').value=60;$('npSys').value='fleischmann'}else if($('npTpl').value==='2e'){$('npW').value=90;$('npD').value=60;$('npSys').value='minitrix'}else if($('npTpl').value==='oval')$('npSys').value='minitrix'};
   })}
 $('brandBtn').onclick=openProjects;
 
