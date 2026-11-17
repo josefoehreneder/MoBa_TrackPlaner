@@ -1585,10 +1585,20 @@ function loadTemplateKlein(H=50,V=''){
   const tl=trail('W15',1);                                   // 9170 oben links
   const w2=put('W15',1);                                     // 9171 Stichgleis innen
   put(null,1,{id:'cVV9110',t:'S',L:94.5,vname:'Ausgleichsgleis',art:'9110'});
-  const w4=put('W15',1);let aus,kh=[],ky=[],ky1,ky2;          // 9171 oben rechts, Ausziehgleis
+  const w4=put('W15',1);let aus,kh=[],ky=[],ky1,ky2,yAe,yBe,yS;          // 9171 oben rechts, Ausziehgleis
   if(KV){aus=put(KC.lead);kh.push(aus);for(const q of KC.turn)kh.push(put(q,1));for(const q of KC.after)kh.push(put(q,q[0]==='C'?-1:1));
-    const kw=put('W15',1);ky1=put('S111');ky.push(kw,ky1,put('S111'),put('S111'),put('buffer-S55.5'));
-    st.active={type:'conn',id:kw.id,ci:2};ky2=put('C430-15',-1);ky.push(ky2,put('S111'),put('S111'),put('buffer-S55.5'))}
+    // Schattenbahnhof in U-Form unter der Platte: 2 Abstellgleise, an beiden Enden verbunden (Lok umsetzen), Lokgleis am Ende
+    const KY=window.__KY||{a0:['S111','S27.75'],a1:['S111'],b0:['S27.75'],b1:[]};
+    const n1=st.pieces.length,kw=put('W15',1);
+    ky1=put(KY.a0[0]);for(const q of KY.a0.slice(1))put(q);for(let i=0;i<4;i++)put('C225.6-45',1);for(const q of KY.a1)put(q);
+    yAe=put('unc-S111');const fw=trail('W15',1);yS=put('S111');put('buffer-S55.5');
+    st.active={type:'conn',id:kw.id,ci:2};ky2=put('C430-15',-1);for(const q of KY.b0)put(q);for(let i=0;i<4;i++)put('C192-45',1);for(const q of KY.b1)put(q);
+    yBe=put('unc-S111');
+    const A2={id:yBe.id,ci:1},B2={id:fw.id,ci:2},sol=findCatalogJoin(A2,B2,F);let ok=false;
+    if(sol){const made=[];st.active={type:'conn',id:A2.id,ci:1};for(const q of sol.seq){const pc=q.v?placeRaw(F,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(F,q.id,null,q.d);made.push(pc);st.active={type:'conn',id:pc.id,ci:1}}
+      rebuild();ok=links.has(key(B2.id,B2.ci));if(!ok){st.pieces=st.pieces.filter(p=>!made.includes(p));rebuild()}}
+    if(!ok)joinFlex(A2,B2,430);
+    ky.push(...st.pieces.slice(n1))}
   else aus=put('S222');
   st.active={type:'conn',id:w4.id,ci:2};
   put('C225.6-45',1);put('C225.6-15',1);put('C225.6-15',1);const rs=put('S27.75');put('C225.6-15',1);put('C225.6-45',1);put('C430-30',1);
@@ -1623,7 +1633,8 @@ function loadTemplateKlein(H=50,V=''){
   st.marks=[{id:outer[0].id,ci:0,k:'iso1'},{id:tl.id,ci:1,k:'iso1'},{id:outer[1].id,ci:0,k:'feed'},
     {id:inner[0].id,ci:0,k:'iso1'},{id:inner[2].id,ci:1,k:'iso1'},{id:inner[1].id,ci:0,k:'feed'},
     {id:sp1.id,ci:0,k:'iso1'},{id:sp1.id,ci:1,k:'feed'},{id:sp2.id,ci:0,k:'iso1'},{id:sp2.id,ci:1,k:'feed'},
-    ...(KV?[{id:aus.id,ci:0,k:'iso1'},{id:aus.id,ci:1,k:'feed'},{id:ky1.id,ci:0,k:'iso1'},{id:ky1.id,ci:1,k:'feed'},{id:ky2.id,ci:0,k:'iso1'},{id:ky2.id,ci:1,k:'feed'}]
+    ...(KV?[{id:aus.id,ci:0,k:'iso1'},{id:aus.id,ci:1,k:'feed'},{id:ky1.id,ci:0,k:'iso1'},{id:ky1.id,ci:1,k:'feed'},{id:yAe.id,ci:1,k:'iso1'},
+       {id:ky2.id,ci:0,k:'iso1'},{id:ky2.id,ci:1,k:'feed'},{id:yBe.id,ci:1,k:'iso1'},{id:yS.id,ci:1,k:'feed'}]
        :[{id:y1.id,ci:0,k:'iso1'},{id:y1.id,ci:1,k:'feed'},{id:y2.id,ci:0,k:'iso1'},{id:y2.id,ci:1,k:'feed'}]),
     {id:bs.id,ci:0,k:'iso1'},{id:bs.id,ci:1,k:'feed'},{id:rs.id,ci:0,k:'feed'}];
   st.sw={[w4.id]:1,[wb.id]:1};   // Hauptstrecke führt oben rechts und unten über den Abzweig
@@ -1755,7 +1766,7 @@ function openProjects(){saveProject();const idx=projIndex().sort((a,b)=>b.update
      <option value="oval">Beispiel-Oval mit Ausweiche (Minitrix)</option>
      <option value="2e">Zwei Ebenen mit Schattenbahnhof, 90 × 60 cm (Minitrix, analog)</option>
      <option value="kl">Kleinstanlage mit Schattenbahnhof unter der Platte, 90 × 60 cm (Fleischmann piccolo, analog)</option>
-     <option value="klk">Kleinstanlage, Schattenbahnhof über Kehre am Ausziehgleis, 100 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
+     <option value="klk">Kleinstanlage, Kehre zum Schattenbahnhof mit Lok-Umsetzen, 100 × 60 cm (Fleischmann piccolo, analog)</option></select></label>
    <div class="acts"><button class="btn primary" id="npGo">Projekt anlegen</button></div>
    <p>Projekte liegen in diesem Browser. Für ein anderes Gerät im Plan-Menü „Als Datei speichern“ oder „Plan kopieren“ verwenden.</p>`,()=>{
     const nm=$('pjName');nm.onchange=()=>{proj.name=nm.value.trim()||'Ohne Namen';updProjTitle();saveProject();draw()};
