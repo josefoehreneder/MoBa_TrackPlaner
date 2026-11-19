@@ -356,20 +356,18 @@ const SYS={
     AR(SP('lx','Bahnübergang',S(55.5)),'9499'),AR(SP('lx','Bahnübergang mit Unterbrecher',S(55.5),{v:'u',sub:'Unterbr.'}),'9199'),
     AR(SP('misc','Übergangsgleis zu Arnold',S(111),{sub:'Arnold'}),'9117')]},
   flnb:{name:'Fleischmann ohne Bettung',parts:[
-    AR(S(312.6),'22202'),AR(S(104.2),'22203'),AR(S(54.2),'22204'),AR(S(50),'22205'),AR(S(33.6),'22206'),AR(S(17.2),'22207'),
+    AR(S(312.6),'22202'),AR(S(104.2),'22203'),AR(S(54.2),'22204'),AR(S(50),'22205'),AR(S(33.6),'22206'),AR(S(12.2),'22207'),
     AR(C(194.6,30),'22221'),AR(C(194.6,24),'22231'),AR(C(194.6,6),'22232'),
     AR(C(228.2,30),'22222'),AR(C(228.2,24),'22233'),AR(C(228.2,6),'22234'),
     AR(C(261.8,30),'22223'),AR(C(295.4,30),'22224'),AR(C(295.4,15),'22235'),
-    AR(C(329,15),'22225'),AR(C(362.6,15),'22226'),AR(C(480,15),'22227'),AR(ax(C(765,12)),'22228'),
-    AR(Wt('W24',104.2,194.6,24,'Weiche 24°'),'22253','22255','elektrisch 22249/22251'),
-    AR(Wt('W15',112.6,362.6,15,'Weiche 15°'),'22265','22267','elektrisch 22261/22263'),
-    AR(ax(Wt('W10',155,765,10,'Weiche 10°')),'22301','22303'),
-    AR(W3('W3-15',112.6,362.6,15),'22247',null,'elektrisch'),
-    AR(ax(Bw('BW30',194.6,228.2,30)),'22273','22275','elektrisch'),
-    AR(X(104.2,30),'22244'),AR(X(112.6,15),'22245'),AR(DKW(112.6,15),'22246',null,'elektrisch'),
-    AR(SP('feed','Anschlussgleis',S(104.2),{approx:true}),'22220'),
+    AR(C(329,15),'22225'),AR(C(362.6,15),'22226'),AR(C(480,15),'22227'),AR(C(765,12),'22228'),
+    AR(Wt('W24',104.2,194.6,24,'Weiche 24°'),'22253','22255','Paar 22254 · Unterflur 22257/22259 · elektrisch 22249/22251'),
+    AR(Wt('W15',112.6,362.6,15,'Weiche 15°'),'22265','22267','Paar 22266 · Unterflur 22269/22271 · elektrisch 22261/22263'),
+    AR(ax(Bw('BW30',194.6,228.2,30)),'22277','22279','Unterflur (Paar 22278) · elektrisch 22273/22275 (Paar 22274)'),
+    AR(X(104.2,30),'22244'),AR(X(112.6,15),'22245'),AR(DKW(112.6,15),'22246',null,'nur elektrisch'),
+    AR(SP('feed','Anschlussgleis gebogen',C(194.6,30)),'22238'),
     AR(SP('unc','Entkupplungsgleis elektrisch',S(104.2),{sub:'elektr.'}),'22212'),
-    AR(SP('misc','Aufgleisschiene',S(104.2),{sub:'Aufgleis.'}),'22210'),
+    AR(SP('misc','Eingleisvorrichtung',S(104.2),{sub:'Eingleis.'}),'22210'),
     AR(SP('buffer','Prellbock (Bausatz)',S(17.2),{approx:true,sub:'Bausatz'}),'22216')]},
   peco:{name:'Peco Setrack',parts:[
     S(174),S(87),S(58),
@@ -393,7 +391,8 @@ const LEGACY={
   minitrix:[S(17.5),C(194.6,15),C(228.2,15),C(329,30),W3('W3-15',112.6,362.6,15),X(129.8,15),DKW(129.8,15),
     SP('feed','Anschlussgleis',S(104.2)),SP('iso','Trenngleis',S(104.2)),SP('iso','Trenngleis',C(228.2,24))],
   fleischmann:[S(104.2),C(192,30),Bw('BW30',192,225.6,30),SP('buffer','Prellbock',S(57.5))],
-  peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)]};
+  peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)],
+  flnb:[S(17.2),Wt('W10',155,765,10,'Weiche 10°'),W3('W3-15',112.6,362.6,15),SP('feed','Anschlussgleis',S(104.2))]};
 for(const k in LEGACY)for(const q of LEGACY[k])if(!SYS[k].parts.some(x=>x.id===q.id))SYS[k].parts.push(Object.assign(q,{hide:true}));
 const artOf=(pc,p)=>p.art?(p.artR&&pc.d===1?p.artR:p.art):''; // d=1: rechts, d=-1: links
 
@@ -1170,7 +1169,7 @@ function bom(){const m=new Map();
     const art=artOf(pc,p),k=src+'|'+(art?art+' · ':'')+n+'|'+(p.alt||'');m.set(k,(m.get(k)||0)+1)}
   let i1=0,fd=0;for(const mk of st.marks||[]){if(mk.k==='iso1')i1+=1;if(mk.k==='iso2')i1+=2;if(mk.k==='feed')fd++}
   const rows=[...m.entries()].sort().map(([k,v])=>{const[s,n,note]=k.split('|');return{s,n,note,v}});
-  for(const k in flexTot){const L=FLEXLEN[k]||730;rows.push({s:SYS[k]?SYS[k].name:k,n:`${FLEXART[k]?FLEXART[k]+' · ':''}Flexgleis ${L} mm (für ${fmt(flexTot[k]/10)} cm Verbindungen)`,v:Math.ceil(flexTot[k]/L)})}
+  for(const k in flexTot){const L=FLEXLEN[k]||730;rows.push({s:SYS[k]?SYS[k].name:k,n:`${FLEXART[k]?FLEXART[k]+' · ':''}Flexgleis ${String(L).replace('.',',')} mm (für ${fmt(flexTot[k]/10)} cm Verbindungen)`,v:Math.ceil(flexTot[k]/L)})}
   if(i1)rows.push({s:'Zubehör',n:'Isolierschienenverbinder',v:i1});
   if(fd)rows.push({s:'Zubehör',n:'Einspeisung (Anschlussklemme / Kabel)',v:fd});
   return rows}
@@ -1330,7 +1329,7 @@ function build3D(){
 }
 
 /* ---------- Zwei offene Enden verbinden (Flexgleis: Bogen – Gerade – Bogen) ---------- */
-const FLEXLEN={minitrix:730,fleischmann:777,flnb:730,peco:914},FLEXART={minitrix:'14901',fleischmann:'9106',flnb:'22200'};
+const FLEXLEN={minitrix:730,fleischmann:777,flnb:730.6,peco:914},FLEXART={minitrix:'14901',fleischmann:'9106',flnb:'22200 (eingespritzt 22201)'};
 function dubins(p0,t0,p1,t1,R,s1,s2){const n=t=>({x:-Math.sin(t),y:Math.cos(t)}),n0=n(t0),n1=n(t1);
   const c1={x:p0.x+s1*R*n0.x,y:p0.y+s1*R*n0.y},c2={x:p1.x+s2*R*n1.x,y:p1.y+s2*R*n1.y};
   const dx=c2.x-c1.x,dy=c2.y-c1.y,D=Math.hypot(dx,dy),al=Math.atan2(dy,dx);let phi;
@@ -1667,7 +1666,7 @@ function loadTemplateKlein(H=50,V=''){
 function loadTemplateKleinNB(){
   const F='flnb',keepSys=ui.sys;ui.sys=F;
   const KN=Object.assign({H:37,fill:[],right:['C228.2-30','C228.2-30','S33.6','C228.2-30','C228.2-30','C228.2-30','C362.6-15'],
-    outer:['C228.2-30','C228.2-30','C228.2-30'],inner:['C194.6-30','C194.6-30','C194.6-30'],bot:['S54.2','S104.2','S17.2']},window.__KN||{});
+    outer:['C228.2-30','C228.2-30','C228.2-30'],inner:['C194.6-30','C194.6-30','C194.6-30'],bot:['S54.2','S104.2','S12.2']},window.__KN||{});
   st={board:{w:1000,d:600},pieces:[],cursor:{x:300,y:60,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
   const put=(pid,d=1,cu=null)=>{const pc=placeRaw(F,pid,cu,d);st.active={type:'conn',id:pc.id,ci:1};return pc};
@@ -1740,8 +1739,8 @@ function loadTemplateSuper8(){
     if(sol&&sol.seq.length<=5){st.active={type:'conn',id:A2.id,ci:A2.ci};for(const q of sol.seq){const pc=q.v?placeRaw(F,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(F,q.id,null,q.d);st.active={type:'conn',id:pc.id,ci:1}}
       rebuild();if(links.has(key(B2.id,B2.ci)))return st.pieces.slice(n);st.pieces=st.pieces.slice(0,n);rebuild()}
     joinFlex(A2,B2,R);return st.pieces.slice(n)};
-  // Diagonale: 104,2 + gekürztes 17,2er + 104,2 = ideale Länge, damit die Acht genau schließt
-  const dg=()=>[put('S104.2'),put(null,1,{id:'cK22207',t:'S',L:+(L-208.4).toFixed(2),vname:'Gerade 17,2 mm, gekürzt auf '+(L-208.4).toFixed(1).replace('.',',')+' mm',art:'22207'}),put('S104.2')];
+  // Diagonale: 104,2 + gekürztes 33,6er (22206) + 104,2 = ideale Länge, damit die Acht genau schließt
+  const dg=()=>[put('S104.2'),put(null,1,{id:'cK22206',t:'S',L:+(L-208.4).toFixed(2),vname:'Gerade 33,6 mm, gekürzt auf '+(L-208.4).toFixed(1).replace('.',',')+' mm',art:'22206'}),put('S104.2')];
   const C1=dd=>put('C194.6-30',dd);
   const d1=dg(),lr=[];for(let i=0;i<10;i++)lr.push(C1(1));
   const d2=dg(),lA=[C1(-1),C1(-1)],lT=S8.top.map(q=>put(q)),lB=[];for(let i=0;i<6;i++)lB.push(C1(-1));
@@ -1791,10 +1790,12 @@ function loadTemplateKS(){
       rebuild();if(links.has(key(B2.id,B2.ci)))return st.pieces.slice(n);st.pieces=st.pieces.slice(0,n);rebuild()}
     joinFlex(A2,B2,R);return st.pieces.slice(n)};
   // gekürztes Katalog-Gleis (z. B. 17,2 mm auf 11,3 mm), für genaue Längen ohne Flexgleis
-  const cut=(len)=>{const base=[17.2,33.6,50,54.2,104.2].find(v=>v>=len-0.05)||104.2,art={17.2:'22207',33.6:'22206',50:'22205',54.2:'22204',104.2:'22203'}[base];
+  const cut=(len)=>{const base=[12.2,33.6,50,54.2,104.2].find(v=>v>=len-0.05)||104.2,art={12.2:'22207',33.6:'22206',50:'22205',54.2:'22204',104.2:'22203'}[base];
     return put(null,1,{id:'cK'+art+'-'+len.toFixed(1),t:'S',L:+len.toFixed(2),vname:'Gerade '+String(base).replace('.',',')+' mm, gekürzt auf '+len.toFixed(1).replace('.',',')+' mm',art})};
   // Gerade mit Katalog-Gleisen auffüllen, Rest als gekürztes Gleis
-  const fill=(len)=>{const out=[];let r=len;for(const [id,v] of [['S312.6',312.6],['S104.2',104.2],['S54.2',54.2],['S50',50],['S33.6',33.6],['S17.2',17.2]])while(r>=v-0.3){out.push(put(id));r-=v}
+  const fill=(len)=>{const out=[];let r=len;for(const [id,v] of [['S312.6',312.6],['S104.2',104.2],['S54.2',54.2],['S50',50],['S33.6',33.6],['S12.2',12.2]])while(r>=v-0.3){out.push(put(id));r-=v}
+    if(r>0.6&&r<5&&out.length){const q=out.pop();r+=lenOf(partOf(q));st.pieces=st.pieces.filter(x=>x!==q);rebuild();   // kein Winzling: lieber das letzte Stück kürzen
+      const prev=out.length?out[out.length-1]:null;if(prev)st.active={type:'conn',id:prev.id,ci:1};else{st.active={type:'cursor'};st.cursor={x:q.att.x,y:q.att.y,a:q.att.a,z:q.att.z||0}}}
     if(r>0.6)out.push(cut(r));return out};
   // Kehrschleife: Weiche 24°, Gegenbogen 66° (R1), Viertelkreis, Halbkreis (R1 + kurzes Gerades), gerader Strang zurück zur Weiche
   // s = +1: Schleife nach hinten (unten, Ebene 0), s = -1: nach vorne (oben, Ebene 1)
@@ -1835,7 +1836,7 @@ function loadTemplateKS(){
 // Dazwischen fährt die Strecke zwei Runden um die Platte (zusätzliche Ebene 0) und fällt dabei gleichmäßig.
 function loadTemplateKS2(){
   const F='flnb',keepSys=ui.sys;ui.sys=F;
-  const K=Object.assign({H:40,yF:470,xC:1093,L2:['S104.2','S17.2'],bahn:['S104.2','S54.2','S33.6']},window.__KS2||{});
+  const K=Object.assign({H:40,yF:470,run:324.8,L2:['S104.2','S33.6'],bahn:['S104.2','S50','S33.6','S12.2']},window.__KS2||{});
   const R1=194.6;
   st={board:{w:1300,d:500},pieces:[],cursor:{x:0,y:0,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
@@ -1848,9 +1849,11 @@ function loadTemplateKS2(){
     if(sol&&sol.seq.length<=4){st.active={type:'conn',id:A2.id,ci:A2.ci};for(const q of sol.seq){const pc=q.v?placeRaw(F,null,{id:'cV'+sol.kit.vr.id,t:'S',L:q.v,vname:sol.kit.vr.vname,art:sol.kit.vr.art},1):placeRaw(F,q.id,null,q.d);st.active={type:'conn',id:pc.id,ci:1}}
       rebuild();if(links.has(key(B2.id,B2.ci)))return st.pieces.slice(n);st.pieces=st.pieces.slice(0,n);rebuild()}
     joinFlex(A2,B2,R);return st.pieces.slice(n)};
-  const cut=(len)=>{const base=[17.2,33.6,50,54.2,104.2].find(v=>v>=len-0.05)||104.2,art={17.2:'22207',33.6:'22206',50:'22205',54.2:'22204',104.2:'22203'}[base];
+  const cut=(len)=>{const base=[12.2,33.6,50,54.2,104.2].find(v=>v>=len-0.05)||104.2,art={12.2:'22207',33.6:'22206',50:'22205',54.2:'22204',104.2:'22203'}[base];
     return put(null,1,{id:'cK'+art+'-'+len.toFixed(1),t:'S',L:+len.toFixed(2),vname:'Gerade '+String(base).replace('.',',')+' mm, gekürzt auf '+len.toFixed(1).replace('.',',')+' mm',art})};
-  const fill=(len)=>{const out=[];let r=len;for(const [id,v] of [['S312.6',312.6],['S104.2',104.2],['S54.2',54.2],['S50',50],['S33.6',33.6],['S17.2',17.2]])while(r>=v-0.3){out.push(put(id));r-=v}
+  const fill=(len)=>{const out=[];let r=len;for(const [id,v] of [['S312.6',312.6],['S104.2',104.2],['S54.2',54.2],['S50',50],['S33.6',33.6],['S12.2',12.2]])while(r>=v-0.3){out.push(put(id));r-=v}
+    if(r>0.6&&r<5&&out.length){const q=out.pop();r+=lenOf(partOf(q));st.pieces=st.pieces.filter(x=>x!==q);rebuild();   // kein Winzling: lieber das letzte Stück kürzen
+      const prev=out.length?out[out.length-1]:null;if(prev)st.active={type:'conn',id:prev.id,ci:1};else{st.active={type:'cursor'};st.cursor={x:q.att.x,y:q.att.y,a:q.att.a,z:q.att.z||0}}}
     if(r>0.6)out.push(cut(r));return out};
   // Kehrschleife (Weiche 24°, Gegenbogen, Viertelkreis, Gerade oben, Halbkreis); bahn=true: Bahnhof auf dem geraden Strang
   const loop=(x,y,s,bahn)=>{st.active={type:'cursor'};st.cursor={x,y,a:Math.PI,z:0};
@@ -1866,15 +1869,15 @@ function loadTemplateKS2(){
       st1={b1,b2,pa,pj,bm}}
     else{const e=G.get(all[all.length-1].id).conns[1],c1=G.get(w.id).conns[1];A(fill(Math.abs(c1.x-e.x)))}
     return {w,hs,all,st1}};
-  const yB=K.yF-2*R1,xT=12+609+K.L2.reduce((a,q)=>a+lenOf(P(q)),0)+5;
+  const yB=K.yF-2*R1,xT=12+609+K.L2.reduce((a,q)=>a+lenOf(P(q)),0)+5,XC=xT+K.run;   // Geraden der Wendel: 312,6 + 12,2
   const up=loop(xT,yB,-1,true);             // oben, Ebene 1, mit Bahnhof
   const lo=loop(xT,K.yF,1,false);           // unten, Ebene −1
   // Wendel: zwei Runden von der oberen zur unteren Schleife
   const n0=st.pieces.length;st.active={type:'conn',id:up.w.id,ci:0};
-  const run=()=>{const a=st.pieces[st.pieces.length-1];fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);};
-  fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);fill(K.xC-xT);       // Runde 1: hinten, rechts, vorne
+  const run=()=>{const a=st.pieces[st.pieces.length-1];fill(XC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);};
+  fill(XC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);fill(XC-xT);       // Runde 1: hinten, rechts, vorne
   const nL=st.pieces.length;for(let i=0;i<6;i++)put('C194.6-30',1);         // links (zwischen den beiden Schleifen)
-  fill(K.xC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);
+  fill(XC-xT);for(let i=0;i<6;i++)put('C194.6-30',1);
   const last=st.pieces[st.pieces.length-1],ce=G.get(last.id).conns[1],cl=G.get(lo.w.id).conns[0];fill(Math.abs(ce.x-cl.x));
   const hel=st.pieces.slice(n0),second=st.pieces.slice(nL);
   ui.cont=keep;rebuild();
