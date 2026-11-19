@@ -305,7 +305,7 @@ const STEP=8;              // Abtastung in mm
 /* ---------- Gleissysteme (Maße nach Katalog, gerundet) ---------- */
 const S=L=>({id:'S'+L,t:'S',L});
 const C=(R,A)=>({id:`C${R}-${A}`,t:'C',R,A});
-const Wt=(id,L,R,A,name)=>({id,t:'T',L,R,A,name});
+const Wt=(id,L,R,A,name,ext)=>({id,t:'T',L,R,A,name,...(ext!=null?{ext}:{})});
 const X=(L,A)=>({id:`X${L}-${A}`,t:'X',L,A});
 // Bogenweiche: innen R1, außen R2 (mit optionalem geraden Vorlauf L0), beide Stränge enden im Winkel A
 const Bw=(id,R1,R2,A,L0=0)=>({id,t:'B',R1,R2,A,L0,name:'Bogenweiche'});
@@ -327,20 +327,19 @@ const SYS={
     AR(S(33.6),'14909'),AR(S(27.9),'14908'),AR(S(17.2),'14903'),VAR('V14975',86.5,120,'Vario-Gleis','14975'),
     AR(C(194.6,30),'14912'),AR(C(194.6,24),'14914'),AR(C(194.6,6),'14916'),
     AR(C(228.2,30),'14922'),AR(C(228.2,24),'14924'),AR(C(228.2,6),'14926'),
-    AR(C(261.8,30),'14910'),AR(C(261.8,15),'14911'),AR(C(261.8,7.5),'14919'),
-    AR(C(295.4,30),'14920'),AR(C(295.4,15),'14921'),AR(C(295.4,7.5),'14929'),
     AR(C(329,15),'14917'),AR(C(362.6,15),'14927'),AR(C(492.6,15),'14918'),AR(C(526.2,15),'14928'),
-    AR(Wt('W24',104.2,194.6,24,'Weiche R1 24°'),'14951','14953'),
-    AR(Wt('W15',112.6,362.6,15,'Weiche R4 15°'),'14954','14955','auch 14938/14939'),
-    AR(ax(Bw('BW30',194.6,228.2,30)),'14956','14957'),
-    AR(ax(Bw('BW3-4',329,362.6,30)),'14947','14948','polarisiert'),
-    AR(X(104.2,30),'14958'),AR(X(112.6,15),'14973'),AR(DKW(112.6,15),'14960',null,'elektrisch 14968'),
+    AR(Wt('W24',104.2,194.6,24,'Kombiweiche 30°/24°',0),'14951','14953','Abzweig R1 24°, mit 6°-Gleis 14916 = R1 30°'),
+    AR(Wt('W15',112.6,362.6,15,'Weiche R4 15°',17.2),'14954','14955','Abzweig R4 15° + 17,2 mm · polarisiert 14938/14939'),
+    AR(ax(Bw('BW42',194.6,228.2,42)),'14956','14957','Bogen R1/R2, entspricht 42°'),
+    AR(ax(Bw('BW3-4',329,362.6,30)),'14981','14983','Bogen R3/R4, entspricht 30°'),
+    AR(X(104.2,30),'14958'),AR(X(129.8,15),'14973'),AR(DKW(129.8,15),'14960',null,'elektrisch'),AR(DKW(104.2,30),'14968',null,'elektrisch'),
     AR(SP('feed','Anschlussgleis',C(194.6,30)),'14972'),
-    AR(SP('misc','Gleis mit Kondensator',S(104.2)),'14990'),
-    AR(SP('iso','Trenngleis',S(50)),'14982'),AR(SP('iso','Trenngleis',C(194.6,30),{approx:true}),'14984'),AR(SP('iso','Trenngleis',C(228.2,30),{approx:true}),'14986'),
-    AR(SP('unc','Entkupplungsgleis elektrisch',S(104.2),{approx:true,sub:'elektr.'}),'14969'),
-    AR(SP('contact','Schaltgleis',S(50)),'14979'),AR(SP('contact','Schaltgleis mit Magnetschalter',S(104.2),{v:'m',approx:true,sub:'Magnet'}),'14980'),
-    AR(SP('buffer','Prellbock',S(50)),'14991'),AR(SP('buffer','Kastenprellbock',S(50),{v:'k',approx:true,sub:'Kasten'}),'14976')]},
+    AR(SP('misc','Gleis mit Funkentstörung',S(104.2)),'14990'),
+    AR(SP('iso','Trenngleis',S(50)),'14982'),AR(SP('iso','Trenngleis',C(194.6,24),{iso2:true}),'14984'),AR(SP('iso','Trenngleis',C(228.2,24),{iso2:true}),'14986'),
+    AR(SP('unc','Entkupplungsgleis elektrisch',S(76.3),{sub:'elektr.'}),'14969'),
+    AR(SP('contact','Kontaktgleis',S(50)),'14979'),AR(SP('contact','Kontaktgleis mit Magnetschalter',S(50),{v:'m',sub:'Magnet'}),'14980'),
+    AR(SP('misc','Eingleisvorrichtung',S(104.2),{v:'e',sub:'Eingleis.'}),'14974'),AR(SP('misc','Übergangsgleis zu Arnold',S(59),{v:'a',sub:'Arnold'}),'14999'),
+    AR(SP('buffer','Prellbock',S(50)),'14991'),AR(SP('buffer','Prellbock Oldtimer',S(50),{v:'k',sub:'Oldtimer'}),'14976')]},
   fleischmann:{name:'Fleischmann piccolo',parts:[
     AR(S(222),'9100'),AR(S(111),'9101'),AR(S(57.5),'9102'),AR(S(55.5),'9103'),AR(S(27.75),'9104'),VAR('V9110',83,111,'Ausgleichsgleis','9110'),
     AR(C(192,45),'9120'),AR(C(192,15),'9122'),AR(C(192,7.5),'9123'),
@@ -361,8 +360,8 @@ const SYS={
     AR(C(228.2,30),'22222'),AR(C(228.2,24),'22233'),AR(C(228.2,6),'22234'),
     AR(C(261.8,30),'22223'),AR(C(295.4,30),'22224'),AR(C(295.4,15),'22235'),
     AR(C(329,15),'22225'),AR(C(362.6,15),'22226'),AR(C(480,15),'22227'),AR(C(765,12),'22228'),
-    AR(Wt('W24',104.2,194.6,24,'Weiche 24°'),'22253','22255','Paar 22254 · Unterflur 22257/22259 · elektrisch 22249/22251'),
-    AR(Wt('W15',112.6,362.6,15,'Weiche 15°'),'22265','22267','Paar 22266 · Unterflur 22269/22271 · elektrisch 22261/22263'),
+    AR(Wt('W24',104.2,194.6,24,'Weiche 24°',0),'22253','22255','Paar 22254 · Unterflur 22257/22259 · elektrisch 22249/22251'),
+    AR(Wt('W15',112.6,362.6,15,'Weiche 15°',21.7),'22265','22267','Paar 22266 · Unterflur 22269/22271 · elektrisch 22261/22263'),
     AR(ax(Bw('BW30',194.6,228.2,30)),'22277','22279','Unterflur (Paar 22278) · elektrisch 22273/22275 (Paar 22274)'),
     AR(X(104.2,30),'22244'),AR(X(112.6,15),'22245'),AR(DKW(112.6,15),'22246',null,'nur elektrisch'),
     AR(SP('feed','Anschlussgleis gebogen',C(194.6,30)),'22238'),
@@ -388,8 +387,9 @@ const RN={minitrix:{194.6:'R1',228.2:'R2',261.8:'R2a',295.4:'R2b',329:'R3',362.6
 for(const k in RN)for(const q of SYS[k].parts)if(q.t==='C'&&RN[k][q.R])q.rn=RN[k][q.R];
 // frühere Teile, die es so nicht mehr gibt (ausgeblendet, für alte Pläne)
 const LEGACY={
-  minitrix:[S(17.5),C(194.6,15),C(228.2,15),C(329,30),W3('W3-15',112.6,362.6,15),X(129.8,15),DKW(129.8,15),
-    SP('feed','Anschlussgleis',S(104.2)),SP('iso','Trenngleis',S(104.2)),SP('iso','Trenngleis',C(228.2,24))],
+  minitrix:[S(17.5),C(194.6,15),C(228.2,15),C(329,30),W3('W3-15',112.6,362.6,15),X(112.6,15),DKW(112.6,15),Bw('BW30',194.6,228.2,30),
+    C(261.8,30),C(261.8,15),C(261.8,7.5),C(295.4,30),C(295.4,15),C(295.4,7.5),SP('iso','Trenngleis',C(194.6,30)),SP('iso','Trenngleis',C(228.2,30)),
+    SP('feed','Anschlussgleis',S(104.2)),SP('iso','Trenngleis',S(104.2)),SP('unc','Entkupplungsgleis elektrisch',S(104.2)),SP('contact','Schaltgleis mit Magnetschalter',S(104.2),{v:'m'})],
   fleischmann:[S(104.2),C(192,30),Bw('BW30',192,225.6,30),SP('buffer','Prellbock',S(57.5))],
   peco:[C(333.5,22.5),Bw('BW22',228,263.5,22.5),X(125,22.5)],
   flnb:[S(17.2),Wt('W10',155,765,10,'Weiche 10°'),W3('W3-15',112.6,362.6,15),SP('feed','Anschlussgleis',S(104.2))]};
@@ -432,7 +432,7 @@ function linePts(x0,y0,x1,y1,t0=0,t1=1){
 function arcPts(R,A,d){
   const a=A*DEG,n=Math.max(3,Math.ceil(R*a/STEP)+1),o=[];
   for(let i=0;i<n;i++){const f=a*i/(n-1);o.push([R*Math.sin(f),d*R*(1-Math.cos(f)),i/(n-1)])}return o}
-function branch(p,d){const a=p.A*DEG,ax=p.R*Math.sin(a),ay=d*p.R*(1-Math.cos(a)),ext=Math.max(0,(p.L-ax)/Math.cos(a));
+function branch(p,d){const a=p.A*DEG,ax=p.R*Math.sin(a),ay=d*p.R*(1-Math.cos(a)),ext=p.ext!=null?p.ext:Math.max(0,(p.L-ax)/Math.cos(a));
   return{ax,ay,ext,ex:ax+ext*Math.cos(a),ey:ay+d*ext*Math.sin(a),a}}
 function localPaths(p,d){
   switch(p.t){
@@ -520,7 +520,7 @@ const isHead=(p,ci)=>p.t==='X'?(ci===1||ci===3):ci!==0;
 function marksAt(id,ci){const L=links.get(key(id,ci));return(st.marks||[]).filter(m=>(m.id===id&&m.ci===ci)||(L&&m.id===L.id&&m.ci===L.ci))}
 function cutLevel(id,ci){let lvl=0;const L=links.get(key(id,ci));
   for(const m of marksAt(id,ci))lvl=Math.max(lvl,m.k==='iso2'?2:m.k==='iso1'?1:0);
-  const pc=(i,c)=>{const o=byId(i),q=partOf(o);return q.fn==='iso'&&c===1?(o.iso2?2:1):0};
+  const pc=(i,c)=>{const o=byId(i),q=partOf(o);return q.fn==='iso'&&c===1?((o.iso2??q.iso2)?2:1):0};
   lvl=Math.max(lvl,pc(id,ci));if(L)lvl=Math.max(lvl,pc(L.id,L.ci));return lvl}
 function analyse(){
   if(!st.marks)st.marks=[];
@@ -925,7 +925,7 @@ function drawFn(pc,g,s){const p=partOf(pc),path=g.paths[0],i=Math.floor(path.len
   switch(p.fn){
     case'feed':for(const[sd,col]of[[1,COL.bad],[-1,COL.up]]){const ex=m.x+nx*sd*22,ey=m.y+ny*sd*22;
       L(m.x+nx*sd*4.5,m.y+ny*sd*4.5,ex,ey,col,Math.max(1.5,2*s));ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx(ex),sy(ey),Math.max(3,3.5*s),0,TAU);ctx.fill()}break;
-    case'iso':for(const sd of pc.iso2?[1,-1]:[1]){const px=m.x+nx*sd*4.5,py=m.y+ny*sd*4.5;
+    case'iso':for(const sd of (pc.iso2??p.iso2)?[1,-1]:[1]){const px=m.x+nx*sd*4.5,py=m.y+ny*sd*4.5;
       L(px-tx*2,py-ty*2,px+tx*2,py+ty*2,COL.board,Math.max(3,5*s));L(px-nx*4,py-ny*4,px+nx*4,py+ny*4,COL.bad,Math.max(2,2.5*s))}break;
     case'unc':{const w=3.2,l=14;ctx.fillStyle=COL.ink;ctx.beginPath();
       [[-l,-w],[l,-w],[l,w],[-l,w]].forEach(([u,v],k)=>{const X=sx(m.x+tx*u+nx*v),Y=sy(m.y+ty*u+ny*v);k?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.closePath();ctx.fill()}break;
@@ -1019,7 +1019,7 @@ function renderCtx(){
     ${p.t==='S'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Weiche einsetzen</button>':''}
     ${p.t==='C'&&Math.abs(pc.rise)<.01?'<button class="btn primary" data-a="wins">Bogenweiche einsetzen</button>':''}
     <button class="btn" data-a="hid" aria-pressed="${!!pc.hid}" title="Gleis liegt im Tunnel oder unter Landschaft">Verdeckt</button>
-    ${p.fn==='iso'?`<button class="btn" data-a="iso2" aria-pressed="${!!pc.iso2}">${pc.iso2?'Beidseitig getrennt':'Einseitig getrennt'}</button>`:''}
+    ${p.fn==='iso'?`<button class="btn" data-a="iso2" aria-pressed="${!!(pc.iso2??p.iso2)}">${(pc.iso2??p.iso2)?'Beidseitig getrennt':'Einseitig getrennt'}</button>`:''}
     <button class="btn" data-a="ins">Davor einfügen</button>
     <button class="btn" data-a="pmv" title="Nur dieses Gleis verschieben oder drehen">✥ Verschieben</button>
     <button class="btn danger" data-a="del">Löschen</button><button class="btn" data-a="x" aria-label="Auswahl aufheben">✕</button>`;
@@ -1068,7 +1068,7 @@ $('ctx').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(a==='swap')reorient(pc,pc.d,{1:2,2:1},'Abzweig getauscht');
   if(a==='del')del(pc);
   if(a==='hid'){snap();pc.hid=!pc.hid;changed();toast(pc.hid?'Gleis als verdeckt markiert':'Gleis wieder sichtbar');return}
-  if(a==='iso2'){snap();pc.iso2=!pc.iso2;rebuild();changed();toast(pc.iso2?'Trenngleis: beide Schienen getrennt':'Trenngleis: eine Schiene getrennt')}
+  if(a==='iso2'){snap();pc.iso2=!(pc.iso2??partOf(pc).iso2);rebuild();changed();toast(pc.iso2?'Trenngleis: beide Schienen getrennt':'Trenngleis: eine Schiene getrennt')}
   if(a==='ins')startInsert(pc);
   if(a==='wins')openTurnoutPicker(pc);
 });
@@ -1803,11 +1803,11 @@ function loadTemplateKS(){
     const w=put('W24',s);st.active={type:'conn',id:w.id,ci:2};
     const sc=[put('C194.6-30',s),put('C194.6-30',s),put('C194.6-6',s)],q=[put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)];
     const h1=[put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)];
-    const ce=G.get(h1[2].id).conns[1],hs=cut(Math.abs(ce.y-y)-R1);
+    const ce=G.get(h1[2].id).conns[1],hl=Math.abs(ce.y-y)-R1,hs=hl>0.6?cut(hl):null;
     // Länge des Zwischenstücks im Halbkreis so, dass der Rückweg genau auf Höhe der Weiche ankommt
     const h2=[put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)];
     const e=G.get(h2[2].id).conns[1],c1=G.get(w.id).conns[1],legs=fill(Math.abs(c1.x-e.x));
-    return {w,sc,q,h:[...h1,hs,...h2],legs,all:[w,...sc,...q,...h1,hs,...h2,...legs]}};
+    return {w,sc,q,h:[...h1,...h2],legs,all:[w,...sc,...q,...h1,...(hs?[hs]:[]),...h2,...legs]}};
   const yB=K.yF-2*R1,front=2*lenOf(SYS[F].parts.find(p=>p.id==='W15'))+K.bahn.reduce((a,q)=>a+lenOf(SYS[F].parts.find(p=>p.id===q)),0),xT=K.xC-front;
   const lo=loop(xT,K.yF,1);
   // Strecke: Bahnhof vorne (Ausweichgleis nach hinten), Bogen rechts, hinten zurück und hinauf
@@ -1825,8 +1825,8 @@ function loadTemplateKS(){
   rebuild();
   const b=planBB();shiftAll(Math.round((st.board.w-b[0]-b[2])/2),Math.round((st.board.d-b[1]-b[3])/2));rebuild();
   // Analog: beide Kehrschleifen beidseitig getrennt (je ein Kehrschleifenmodul), Ausweichgleis abschaltbar
-  st.marks=[{id:lo.w.id,ci:1,k:'iso2'},{id:lo.w.id,ci:2,k:'iso2'},{id:lo.h[3].id,ci:0,k:'feed'},
-    {id:up.w.id,ci:1,k:'iso2'},{id:up.w.id,ci:2,k:'iso2'},{id:up.h[3].id,ci:0,k:'feed'},
+  st.marks=[{id:lo.w.id,ci:1,k:'iso2'},{id:lo.w.id,ci:2,k:'iso2'},{id:lo.h[2].id,ci:1,k:'feed'},
+    {id:up.w.id,ci:1,k:'iso2'},{id:up.w.id,ci:2,k:'iso2'},{id:up.h[2].id,ci:1,k:'feed'},
     {id:bm[0].id,ci:0,k:'feed'},{id:pa.id,ci:0,k:'iso1'},{id:pa.id,ci:1,k:'feed'},{id:(pj.length?pj[pj.length-1]:pa).id,ci:1,k:'iso1'}];
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
 }
@@ -1836,7 +1836,7 @@ function loadTemplateKS(){
 // Dazwischen fährt die Strecke zwei Runden um die Platte (zusätzliche Ebene 0) und fällt dabei gleichmäßig.
 function loadTemplateKS2(){
   const F='flnb',keepSys=ui.sys;ui.sys=F;
-  const K=Object.assign({H:40,yF:470,run:324.8,L2:['S104.2','S33.6'],bahn:['S104.2','S50','S33.6','S12.2']},window.__KS2||{});
+  const K=Object.assign({H:40,yF:470,run:324.8,L2:['S104.2','S54.2'],bahn:['S104.2','S50','S50']},window.__KS2||{});
   const R1=194.6;
   st={board:{w:1300,d:500},pieces:[],cursor:{x:0,y:0,a:0,z:0},active:{type:'cursor'},nid:1,marks:[],sw:{}};
   const keep=ui.cont;ui.cont=false;rebuild();
@@ -1860,7 +1860,7 @@ function loadTemplateKS2(){
     const w=put('W24',s);st.active={type:'conn',id:w.id,ci:2};
     const all=[w];const A=a=>{all.push(...a);return a};
     A([put('C194.6-30',s),put('C194.6-30',s),put('C194.6-6',s)]);A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);A(K.L2.map(q=>put(q)));
-    const h1=A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);const ce=G.get(h1[2].id).conns[1];const hs=A([cut(Math.abs(ce.y-y)-R1)])[0];
+    const h1=A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);const ce=G.get(h1[2].id).conns[1];const hl=Math.abs(ce.y-y)-R1;if(hl>0.6)A([cut(hl)]);const hs=h1[2];
     A([put('C194.6-30',-s),put('C194.6-30',-s),put('C194.6-30',-s)]);
     let st1=null;
     if(bahn){const b1=put('W15',s),bm=K.bahn.map(q=>put(q)),b2=trail('W15',s);A([b1,...bm,b2]);
@@ -1869,7 +1869,7 @@ function loadTemplateKS2(){
       st1={b1,b2,pa,pj,bm}}
     else{const e=G.get(all[all.length-1].id).conns[1],c1=G.get(w.id).conns[1];A(fill(Math.abs(c1.x-e.x)))}
     return {w,hs,all,st1}};
-  const yB=K.yF-2*R1,xT=12+609+K.L2.reduce((a,q)=>a+lenOf(P(q)),0)+5,XC=xT+K.run;   // Geraden der Wendel: 312,6 + 12,2
+  const yB=K.yF-2*R1,xT=12+584+K.L2.reduce((a,q)=>a+lenOf(P(q)),0)+5,XC=xT+K.run;   // Geraden der Wendel: 312,6 + 12,2
   const up=loop(xT,yB,-1,true);             // oben, Ebene 1, mit Bahnhof
   const lo=loop(xT,K.yF,1,false);           // unten, Ebene −1
   // Wendel: zwei Runden von der oberen zur unteren Schleife
@@ -1888,8 +1888,8 @@ function loadTemplateKS2(){
   rebuild();
   const b=planBB();shiftAll(Math.round((st.board.w-b[0]-b[2])/2),Math.round((st.board.d-b[1]-b[3])/2));rebuild();
   const S1=up.st1;
-  st.marks=[{id:up.w.id,ci:1,k:'iso2'},{id:up.w.id,ci:2,k:'iso2'},{id:up.hs.id,ci:0,k:'feed'},
-    {id:lo.w.id,ci:1,k:'iso2'},{id:lo.w.id,ci:2,k:'iso2'},{id:lo.hs.id,ci:0,k:'feed'},
+  st.marks=[{id:up.w.id,ci:1,k:'iso2'},{id:up.w.id,ci:2,k:'iso2'},{id:up.hs.id,ci:1,k:'feed'},
+    {id:lo.w.id,ci:1,k:'iso2'},{id:lo.w.id,ci:2,k:'iso2'},{id:lo.hs.id,ci:1,k:'feed'},
     {id:hel[0].id,ci:1,k:'feed'},{id:S1.pa.id,ci:0,k:'iso1'},{id:S1.pa.id,ci:1,k:'feed'},{id:(S1.pj.length?S1.pj[S1.pj.length-1]:S1.pa).id,ci:1,k:'iso1'}];
   st.active=null;ui.sel=null;ui.sys=keepSys;rebuild();
 }
@@ -1924,8 +1924,8 @@ function loadTemplate2E(H=45){
   for(let i=0;i<3;i++)add('C228.2-30',-1);                       // … dann R2 90° zurück in den Schattenbahnhof
   // Abstellgleise
   const sid=[];const addS=(pid,d)=>{const pc=placeRaw(M,pid,null,d);sid.push(pc);st.active={type:'conn',id:pc.id,ci:1};return pc};
-  st.active={type:'conn',id:wl.id,ci:2};const s1=addS('C194.6-24',-1);const s1e=addS('C194.6-24',-1);
-  st.active={type:'conn',id:wl2.id,ci:2};const u1=addS('C194.6-24',1);addS('S50',1);addS('S17.2',1);const u1e=addS('C194.6-24',1);
+  st.active={type:'conn',id:wl.id,ci:2};const s1=addS('C194.6-24',-1);addS('S50',1);const s1e=addS('C194.6-24',-1);
+  st.active={type:'conn',id:wl2.id,ci:2};const u1=addS('C194.6-24',1);addS('S50',1);addS('S50',1);addS('S17.2',1);const u1e=addS('C194.6-24',1);
   ui.cont=keep;
   // Höhen: unten flach – Rampe hoch – oben flach – Rampe runter – unten flach
   const len=pc=>lenOf(partOf(pc)),seg=(a,b)=>main.slice(a,b);
@@ -1934,7 +1934,7 @@ function loadTemplate2E(H=45){
   const Lup=up.reduce((a,q)=>a+len(q),0),Ldn=down.reduce((a,q)=>a+len(q),0);
   let z=0;main.forEach((pc,i)=>{let r=0;if(i>=iA&&i<iTop)r=H*len(pc)/Lup;else if(i>=iDown&&i<iDownEnd)r=-H*len(pc)/Ldn;
     pc.att.z=z;pc.z0=z;pc.rise=flat(partOf(pc))?0:+r.toFixed(3);if(pc.k===1){pc.z0=z}z+=pc.rise});
-  for(const pc of sid){const zz=sid.indexOf(pc)<2?0:H;pc.att.z=zz;pc.z0=zz;pc.rise=0}
+  const nLow=sid.indexOf(s1e)+1;for(const pc of sid){const zz=sid.indexOf(pc)<nLow?0:H;pc.att.z=zz;pc.z0=zz;pc.rise=0}
   rebuild();
   // Analog: Abstellgleise und Hauptgleis im Schattenbahnhof abschaltbar, Einspeisungen
   st.marks=[{id:s1.id,ci:0,k:'iso1'},{id:s1e.id,ci:1,k:'iso1'},{id:u1.id,ci:0,k:'iso1'},{id:u1e.id,ci:1,k:'iso1'},
